@@ -30,8 +30,10 @@ public class PlayerTickHandler {
     private static final int EFFECT_INTERVAL     = 200;   // 10 seconds
     private static final int DECAY_INTERVAL      = 1200;  // 1 minute
 
-    /** Hysteresis buffer — a player must drop this far below a threshold before the tier changes down. Prevents flickering at boundaries. */
-    private static final float TIER_HYSTERESIS = 2.0f;
+    /** Hysteresis buffer — a player must drop this far below a threshold before the tier changes down.
+     * At drain rate of 0.0556/s, 5.0 points ≈ 90 seconds of solo time before losing a tier.
+     * Enough to open chests, craft, or take a short break without flickering. */
+    private static final float TIER_HYSTERESIS = 5.0f;
 
     @SubscribeEvent
     public void onServerTick(ServerTickEvent.Post event) {

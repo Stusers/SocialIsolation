@@ -18,13 +18,13 @@ public class SocialConfig {
     // ── Meter rates ──────────────────────────────────────────────────────────
     public static final ModConfigSpec.DoubleValue METER_GAIN_RATE = BUILDER
             .comment("Social meter gain per second when near at least one other player (before familiarity scaling).",
-                     "Default: 0.1667 — reaches 100 from 0 in ~10 minutes with a fresh (familiarity=0) player.")
+                     "Default: 0.1667 — reaches 100 from 50 in ~5 minutes with a fresh (familiarity=0) player.")
             .defineInRange("meterGainRate", 0.1667, 0.0, 100.0);
 
     public static final ModConfigSpec.DoubleValue METER_DRAIN_RATE = BUILDER
             .comment("Social meter drain per second when completely alone.",
-                     "Default: 0.02778 — drains from 100 to 0 in ~60 minutes alone.")
-            .defineInRange("meterDrainRate", 0.02778, 0.0, 100.0);
+                     "Default: 0.0556 — drains from 50 to 0 in ~15 minutes alone.")
+            .defineInRange("meterDrainRate", 0.0556, 0.0, 100.0);
 
     // ── Familiarity ──────────────────────────────────────────────────────────
     public static final ModConfigSpec.DoubleValue FAMILIARITY_GAIN_RATE = BUILDER
@@ -40,15 +40,16 @@ public class SocialConfig {
 
     // ── Thresholds ───────────────────────────────────────────────────────────
     public static final ModConfigSpec.DoubleValue THRESHOLD_THRIVING = BUILDER
-            .comment("Social meter value above which the player is considered 'Thriving' (benefits applied).")
-            .defineInRange("thresholdThriving", 70.0, 0.0, 100.0);
+            .comment("Social meter value above which the player is considered 'Thriving' (benefits applied).",
+                     "Default: 60.0 — reachable in ~1 minute with a fresh friend when starting from 50.")
+            .defineInRange("thresholdThriving", 60.0, 0.0, 100.0);
 
     public static final ModConfigSpec.DoubleValue THRESHOLD_LONELY = BUILDER
             .comment("Social meter value below which mild penalties are applied.")
             .defineInRange("thresholdLonely", 40.0, 0.0, 100.0);
 
     public static final ModConfigSpec.DoubleValue THRESHOLD_ISOLATED = BUILDER
-            .comment("Social meter value below which severe penalties are applied.")
+            .comment("Social meter value below which moderate penalties are applied.")
             .defineInRange("thresholdIsolated", 15.0, 0.0, 100.0);
 
     // ── Toggle individual effects ────────────────────────────────────────────
