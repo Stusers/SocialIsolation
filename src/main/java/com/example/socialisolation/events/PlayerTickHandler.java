@@ -4,10 +4,12 @@ import com.example.socialisolation.config.SocialConfig;
 import com.example.socialisolation.data.PlayerSocialData;
 import com.example.socialisolation.data.SocialSavedData;
 import com.example.socialisolation.effects.EffectApplicator;
+import com.example.socialisolation.network.SocialMeterPayload;
 import com.example.socialisolation.util.ProximityUtil;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.List;
 
@@ -43,6 +45,10 @@ public class PlayerTickHandler {
             // ── Proximity + meter (staggered by player index) ──────────────
             if ((tick + i) % PROXIMITY_INTERVAL == 0) {
                 updateMeter(player, savedData);
+
+                // Send updated meter to this player's client for HUD rendering
+                PlayerSocialData data = savedData.getOrCreate(player.getUUID());
+                PacketDistributor.sendToPlayer(player, new SocialMeterPayload(data.getSocialMeter()));
             }
 
             // ── Effect application ─────────────────────────────────────────
@@ -56,7 +62,6 @@ public class PlayerTickHandler {
         // ── Familiarity decay + dirty mark (once per minute, not per player) ──
         if (tick % DECAY_INTERVAL == 0) {
             double decayRate = SocialConfig.FAMILIARITY_DECAY_RATE.get();
-            // Build the set of currently online UUIDs once — only these count for decay
             java.util.Set<java.util.UUID> onlineUuids = new java.util.HashSet<>();
             for (ServerPlayer p : players) onlineUuids.add(p.getUUID());
 
