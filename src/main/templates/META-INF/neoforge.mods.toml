@@ -47,8 +47,8 @@ authors="Stusers"
 # The description text for the mod (multi line!) (#mandatory)
 description='''
 Social Isolation - A server-side SMP mod that subtly incentivises players to spend time together.
-Players near others fill their Social Meter for small benefits (Saturation, Luck).
-Players alone drain their meter over time, eventually earning mild penalties (Mining Fatigue, Hunger).
+Players near others fill their Social Meter for benefits (+15% mining speed, +15% XP).
+Players alone drain their meter over time, earning mild penalties (-15% mining speed).
 A familiarity system prevents AFK exploitation by reducing meter gain from players you are always near.
 '''
 
@@ -96,3 +96,5 @@ A familiarity system prevents AFK exploitation by reducing meter gain from playe
 # stop your mod loading on the server for example.
 #[features.${mod_id}]
 #openGLVersion="[3.2,)"
+
+

@@ -1,17 +1,7 @@
 {
-  "itemGroup.socialisolation": "Example Mod Tab",
-  "block.socialisolation.example_block": "Example Block",
-  "item.socialisolation.example_item": "Example Item",
-
   "effect.socialisolation.social_thriving": "In Good Company",
   "effect.socialisolation.social_lonely": "Restless",
   "effect.socialisolation.social_isolated": "Isolated",
 
-  "socialisolation.configuration.title": "Social Isolation Configs",
-  "socialisolation.configuration.section.socialisolation.common.toml": "Social Isolation Configs",
-  "socialisolation.configuration.section.socialisolation.common.toml.title": "Social Isolation Configs",
-  "socialisolation.configuration.items": "Item List",
-  "socialisolation.configuration.logDirtBlock": "Log Dirt Block",
-  "socialisolation.configuration.magicNumberIntroduction": "Magic Number Text",
-  "socialisolation.configuration.magicNumber": "Magic Number"
+  "socialisolation.configuration.title": "Social Isolation Configs"
 }
