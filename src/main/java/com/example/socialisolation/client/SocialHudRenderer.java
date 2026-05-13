@@ -11,7 +11,7 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * Draws a polished Social Meter bar above the hunger bar in the player HUD.
- *
+
  * Features:
  *   - Rounded-corner bar with 1px border
  *   - Tier name label left of the bar

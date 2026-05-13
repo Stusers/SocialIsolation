@@ -30,6 +30,9 @@ public class PlayerTickHandler {
     private static final int EFFECT_INTERVAL     = 200;   // 10 seconds
     private static final int DECAY_INTERVAL      = 1200;  // 1 minute
 
+    /** Hysteresis buffer — a player must drop this far below a threshold before the tier changes down. Prevents flickering at boundaries. */
+    private static final float TIER_HYSTERESIS = 2.0f;
+
     @SubscribeEvent
     public void onServerTick(ServerTickEvent.Post event) {
         var server = event.getServer();
@@ -54,8 +57,12 @@ public class PlayerTickHandler {
             // ── Effect application ─────────────────────────────────────────
             if ((tick + i) % EFFECT_INTERVAL == 0) {
                 PlayerSocialData data = savedData.getOrCreate(player.getUUID());
-                EffectApplicator.SocialTier tier = EffectApplicator.getTier(data.getSocialMeter());
-                EffectApplicator.applyEffects(player, tier);
+                EffectApplicator.SocialTier tier = resolveTierWithHysteresis(data);
+                if (tier.ordinal() != data.getLastAppliedTierOrdinal()) {
+                    EffectApplicator.applyEffects(player, tier);
+                    data.setLastAppliedTierOrdinal(tier.ordinal());
+                    savedData.setDirty();
+                }
             }
         }
 
@@ -80,13 +87,12 @@ public class PlayerTickHandler {
 
         int radius = SocialConfig.PROXIMITY_RADIUS.get();
         List<ServerPlayer> nearbyPlayers = ProximityUtil.getNearbyPlayers(player, radius);
-        // Total social sources = real players + Willson slimes
         int totalSources = ProximityUtil.countNearbySocialSources(player, radius, savedData);
 
         if (totalSources == 0) {
-            // Alone — drain meter
+            // Alone — drain meter (time-accurate)
             float drainPerSecond = SocialConfig.METER_DRAIN_RATE.get().floatValue();
-            data.adjustMeter(-drainPerSecond);
+            data.adjustMeterRate(-drainPerSecond);
         } else {
             float baseGainPerSecond = SocialConfig.METER_GAIN_RATE.get().floatValue();
 
@@ -104,10 +110,55 @@ public class PlayerTickHandler {
             weightedSum += willsonCount;
 
             float groupMultiplier = Math.min(1.5f, 1.0f + (float)(Math.log(totalSources) / Math.log(2)) * 0.25f);
-            float totalGain = baseGainPerSecond * weightedSum * groupMultiplier;
-            data.adjustMeter(totalGain);
+            float totalGainPerSecond = baseGainPerSecond * weightedSum * groupMultiplier;
+            data.adjustMeterRate(totalGainPerSecond);
         }
 
         savedData.setDirty();
     }
+
+    /**
+     * Returns the tier with hysteresis applied.
+     *
+     * Rule: once you're in a tier, you must move at least {@link #TIER_HYSTERESIS}
+     * points PAST the threshold in the direction of the new tier before switching.
+     *
+     * Going down (to a worse tier) is gated by hysteresis.
+     * Going up (to a better tier) is immediate — feels more rewarding.
+     */
+    private static EffectApplicator.SocialTier resolveTierWithHysteresis(PlayerSocialData data) {
+        float meter = data.getSocialMeter();
+        int lastOrdinal = data.getLastAppliedTierOrdinal();
+
+        if (lastOrdinal < 0) {
+            return EffectApplicator.getTier(meter);
+        }
+
+        EffectApplicator.SocialTier lastTier = EffectApplicator.SocialTier.values()[lastOrdinal];
+        EffectApplicator.SocialTier rawTier = EffectApplicator.getTier(meter);
+
+        if (rawTier == lastTier) return lastTier;
+
+        float thriving = SocialConfig.THRESHOLD_THRIVING.get().floatValue();
+        float lonely   = SocialConfig.THRESHOLD_LONELY.get().floatValue();
+        float isolated = SocialConfig.THRESHOLD_ISOLATED.get().floatValue();
+
+        // Going UP to a better tier — immediate (rewarding feel)
+        if (isBetter(rawTier, lastTier)) {
+            return rawTier;
+        }
+
+        // Going DOWN to a worse tier — require hysteresis buffer
+        return switch (lastTier) {
+            case THRIVING  -> meter < thriving - TIER_HYSTERESIS ? rawTier : lastTier;
+            case NEUTRAL   -> meter < lonely   - TIER_HYSTERESIS ? rawTier : lastTier;
+            case LONELY    -> meter < isolated - TIER_HYSTERESIS ? rawTier : lastTier;
+            case ISOLATED  -> rawTier; // can't go lower
+        };
+    }
+
+    private static boolean isBetter(EffectApplicator.SocialTier a, EffectApplicator.SocialTier b) {
+        return a.ordinal() < b.ordinal(); // THRIVING(0) < NEUTRAL(1) < LONELY(2) < ISOLATED(3)
+    }
+
 }

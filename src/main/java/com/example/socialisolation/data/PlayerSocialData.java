@@ -10,32 +10,28 @@ import java.util.UUID;
 
 /**
  * Per-player data model stored inside SocialSavedData.
- *
- * socialMeter          – 0-100 float; source of truth for all effect decisions.
- * familiarityMap       – UUID → 0.0-1.0 float; how "used to" this player is to each neighbour.
- * lastSeenTogetherMs   – UUID → wall-clock ms; timestamp of last proximity tick with that player.
- *                        Familiarity only decays toward players who are currently online and
- *                        not nearby — offline time is never counted against familiarity.
- * lastOnlineMs         – wall-clock ms when the player last logged in (used to freeze meter
- *                        drain while offline).
  */
 public class PlayerSocialData {
 
-    private static final float SOCIAL_METER_DEFAULT = 50.0f;
+    private static final float SOCIAL_METER_DEFAULT = 70.0f; // Start with a buffer so new players don't get penalised immediately
 
     private float socialMeter;
     private final Map<UUID, Float> familiarityMap = new HashMap<>();
-    /** Wall-clock System.currentTimeMillis() of last proximity tick with each UUID. */
     private final Map<UUID, Long> lastSeenTogetherMs = new HashMap<>();
-    /** Wall-clock time of the player's last login — used to compute offline decay. */
     private long lastOnlineMs;
+
+    /** Wall-clock ms of the last time the meter was updated — enables accurate delta-time rates regardless of TPS. */
+    private long lastMeterUpdateMs;
+    /** The tier last applied to this player — used to avoid redundant effect clear/re-add cycles. */
+    private int lastAppliedTierOrdinal = -1;
 
     public PlayerSocialData() {
         this.socialMeter = SOCIAL_METER_DEFAULT;
         this.lastOnlineMs = System.currentTimeMillis();
+        this.lastMeterUpdateMs = System.currentTimeMillis();
     }
 
-    // ── Meter ────────────────────────────────────────────────────────────────
+    // ── Meter (time-accurate) ────────────────────────────────────────────────
 
     public float getSocialMeter() { return socialMeter; }
 
@@ -43,8 +39,18 @@ public class PlayerSocialData {
         this.socialMeter = Math.max(0f, Math.min(100f, value));
     }
 
-    public void adjustMeter(float delta) {
-        setSocialMeter(socialMeter + delta);
+    /** Adjust meter by {@code ratePerSecond} multiplied by real elapsed seconds since last update. */
+    public void adjustMeterRate(float ratePerSecond) {
+        long now = System.currentTimeMillis();
+        float deltaSeconds = (now - lastMeterUpdateMs) / 1000.0f;
+        if (deltaSeconds > 0) {
+            setSocialMeter(socialMeter + ratePerSecond * deltaSeconds);
+            lastMeterUpdateMs = now;
+        }
+    }
+
+    public void forceSetLastMeterUpdateNow() {
+        lastMeterUpdateMs = System.currentTimeMillis();
     }
 
     // ── Familiarity ──────────────────────────────────────────────────────────
@@ -62,27 +68,31 @@ public class PlayerSocialData {
     }
 
     /**
-     * Decay familiarity only toward players in {@code onlineUuids} who haven't been
-     * seen together recently. Players who are offline are completely ignored —
-     * familiarity is preserved until they are both online and apart.
-     *
-     * @param onlineUuids  UUIDs of all players currently on the server
-     * @param decayPerSecond rate from config
+     * Decay familiarity toward online players who are not nearby.
+     * Resets last-seen timestamp after applying decay so subsequent ticks
+     * only count the delta, preventing compounding.
      */
     public void decayFamiliarityToward(java.util.Set<UUID> onlineUuids, double decayPerSecond) {
         long nowMs = System.currentTimeMillis();
-        for (UUID uuid : familiarityMap.keySet()) {
-            // Skip players who are offline — their familiarity is frozen
+        for (UUID uuid : new java.util.ArrayList<>(familiarityMap.keySet())) {
             if (!onlineUuids.contains(uuid)) continue;
 
             long lastSeen = lastSeenTogetherMs.getOrDefault(uuid, nowMs);
             double secondsApart = (nowMs - lastSeen) / 1000.0;
+            if (secondsApart <= 0) continue;
+
             float decay = (float) (decayPerSecond * secondsApart);
             float current = familiarityMap.get(uuid);
-            familiarityMap.put(uuid, Math.max(0f, current - decay));
+            float next = Math.max(0f, current - decay);
+            if (next <= 0f) {
+                familiarityMap.remove(uuid);
+                lastSeenTogetherMs.remove(uuid);
+            } else {
+                familiarityMap.put(uuid, next);
+                // Reset timestamp so next decay only counts new apart-time
+                lastSeenTogetherMs.put(uuid, nowMs);
+            }
         }
-        // Remove fully-decayed entries to save memory
-        familiarityMap.entrySet().removeIf(e -> e.getValue() <= 0f);
     }
 
     public void markSeenTogether(UUID other) {
@@ -91,10 +101,6 @@ public class PlayerSocialData {
 
     // ── Effective gain multiplier ────────────────────────────────────────────
 
-    /**
-     * Returns the effective meter-gain multiplier when near {@code other}.
-     * Familiarity 0.0 → full gain; familiarity 1.0 → zero gain.
-     */
     public float effectiveGainMultiplier(UUID other) {
         return 1.0f - getFamiliarity(other);
     }
@@ -102,7 +108,15 @@ public class PlayerSocialData {
     // ── Online tracking ──────────────────────────────────────────────────────
 
     public long getLastOnlineMs() { return lastOnlineMs; }
-    public void markOnline() { lastOnlineMs = System.currentTimeMillis(); }
+    public void markOnline() {
+        lastOnlineMs = System.currentTimeMillis();
+        lastMeterUpdateMs = System.currentTimeMillis(); // Prevent offline time from being counted as "alone time"
+    }
+
+    // ── Effect tier tracking ─────────────────────────────────────────────────
+
+    public int getLastAppliedTierOrdinal() { return lastAppliedTierOrdinal; }
+    public void setLastAppliedTierOrdinal(int ordinal) { this.lastAppliedTierOrdinal = ordinal; }
 
     // ── NBT serialisation ────────────────────────────────────────────────────
 
@@ -110,13 +124,14 @@ public class PlayerSocialData {
         CompoundTag tag = new CompoundTag();
         tag.putFloat("socialMeter", socialMeter);
         tag.putLong("lastOnlineMs", lastOnlineMs);
+        tag.putLong("lastMeterUpdateMs", lastMeterUpdateMs);
+        tag.putInt("lastAppliedTierOrdinal", lastAppliedTierOrdinal);
 
         ListTag familiarityList = new ListTag();
         for (Map.Entry<UUID, Float> entry : familiarityMap.entrySet()) {
             CompoundTag entry_tag = new CompoundTag();
             entry_tag.putUUID("uuid", entry.getKey());
             entry_tag.putFloat("value", entry.getValue());
-            // Store last-seen timestamp alongside familiarity so decay survives restarts
             entry_tag.putLong("lastSeenMs", lastSeenTogetherMs.getOrDefault(entry.getKey(), lastOnlineMs));
             familiarityList.add(entry_tag);
         }
@@ -128,6 +143,8 @@ public class PlayerSocialData {
         PlayerSocialData data = new PlayerSocialData();
         data.socialMeter = tag.getFloat("socialMeter");
         data.lastOnlineMs = tag.getLong("lastOnlineMs");
+        data.lastMeterUpdateMs = tag.getLong("lastMeterUpdateMs");
+        data.lastAppliedTierOrdinal = tag.getInt("lastAppliedTierOrdinal");
 
         ListTag familiarityList = tag.getList("familiarity", Tag.TAG_COMPOUND);
         for (int i = 0; i < familiarityList.size(); i++) {

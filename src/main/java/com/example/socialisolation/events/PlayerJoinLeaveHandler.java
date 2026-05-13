@@ -12,14 +12,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * Handles player login and logout events.
- *
- * On LOGIN:
- *   - Update lastOnlineMs to now (so offline time doesn't also drain meter)
- *   - Re-apply effects immediately so the player sees them right away
- *
- * On LOGOUT:
- *   - Mark the saved data dirty to ensure data is flushed before server shutdown
- *   - (Meter drain is frozen while offline — no action needed here)
  */
 public class PlayerJoinLeaveHandler {
 
@@ -30,10 +22,13 @@ public class PlayerJoinLeaveHandler {
         SocialSavedData savedData = SocialSavedData.get(player.server);
         PlayerSocialData data = savedData.getOrCreate(player.getUUID());
 
+        // Record login time so meter drain starts from now (not from last logout)
         data.markOnline();
 
+        // Immediately apply the correct effects so there's no delay on login
         EffectApplicator.SocialTier tier = EffectApplicator.getTier(data.getSocialMeter());
         EffectApplicator.applyEffects(player, tier);
+        data.setLastAppliedTierOrdinal(tier.ordinal());
 
         // Send initial meter value so the HUD is populated immediately on login
         PacketDistributor.sendToPlayer(player, new SocialMeterPayload(data.getSocialMeter()));
