@@ -5,6 +5,7 @@ import com.example.socialisolation.config.SocialConfig;
 import com.example.socialisolation.effects.ModEffects;
 import com.example.socialisolation.events.PlayerJoinLeaveHandler;
 import com.example.socialisolation.events.PlayerTickHandler;
+import com.example.socialisolation.events.XpBoostHandler;
 import com.mojang.logging.LogUtils;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -22,12 +23,12 @@ public class SocialIsolation {
     public SocialIsolation(IEventBus modEventBus, ModContainer modContainer) {
         modContainer.registerConfig(ModConfig.Type.SERVER, SocialConfig.SPEC, "socialisolation-server.toml");
 
-        // Register custom MobEffects
         ModEffects.register(modEventBus);
 
         NeoForge.EVENT_BUS.register(new CommandRegistrar());
         NeoForge.EVENT_BUS.register(new PlayerTickHandler());
         NeoForge.EVENT_BUS.register(new PlayerJoinLeaveHandler());
+        NeoForge.EVENT_BUS.register(new XpBoostHandler());
 
         LOGGER.info("Social Isolation mod loaded.");
     }
