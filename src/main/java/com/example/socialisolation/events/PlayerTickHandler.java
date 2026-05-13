@@ -79,35 +79,31 @@ public class PlayerTickHandler {
         PlayerSocialData data = savedData.getOrCreate(player.getUUID());
 
         int radius = SocialConfig.PROXIMITY_RADIUS.get();
-        List<ServerPlayer> nearby = ProximityUtil.getNearbyPlayers(player, radius);
+        List<ServerPlayer> nearbyPlayers = ProximityUtil.getNearbyPlayers(player, radius);
+        // Total social sources = real players + Willson slimes
+        int totalSources = ProximityUtil.countNearbySocialSources(player, radius, savedData);
 
-        if (nearby.isEmpty()) {
+        if (totalSources == 0) {
             // Alone — drain meter
             float drainPerSecond = SocialConfig.METER_DRAIN_RATE.get().floatValue();
             data.adjustMeter(-drainPerSecond);
         } else {
             float baseGainPerSecond = SocialConfig.METER_GAIN_RATE.get().floatValue();
 
-            // Sum up familiarity-weighted contributions from each nearby player.
-            // Each person contributes independently — being near more people is better.
-            // A soft group bonus caps at 1.5x for 3+ people so large gatherings feel
-            // noticeably rewarding without scaling infinitely.
+            // Familiarity only applies to real players (Willson never becomes familiar)
             float weightedSum = 0f;
-            for (ServerPlayer other : nearby) {
-                float multiplier = data.effectiveGainMultiplier(other.getUUID());
-                weightedSum += multiplier;
-
-                // Grow familiarity with each nearby player
+            for (ServerPlayer other : nearbyPlayers) {
+                weightedSum += data.effectiveGainMultiplier(other.getUUID());
                 float familiarityGain = SocialConfig.FAMILIARITY_GAIN_RATE.get().floatValue();
                 data.addFamiliarity(other.getUUID(), familiarityGain);
                 data.markSeenTogether(other.getUUID());
             }
 
-            // Soft cap: diminishing returns past the first person.
-            // Formula: 1 + log2(nearbyCount) gives ~1.0 for 1 person, ~2.0 for 4, ~2.58 for 6
-            // We then clamp to a max multiplier of 1.5 so it never feels overpowered.
-            float groupMultiplier = Math.min(1.5f, 1.0f + (float)(Math.log(nearby.size()) / Math.log(2)) * 0.25f);
+            // Willson slimes contribute a flat 1.0 multiplier each (no familiarity decay)
+            int willsonCount = totalSources - nearbyPlayers.size();
+            weightedSum += willsonCount;
 
+            float groupMultiplier = Math.min(1.5f, 1.0f + (float)(Math.log(totalSources) / Math.log(2)) * 0.25f);
             float totalGain = baseGainPerSecond * weightedSum * groupMultiplier;
             data.adjustMeter(totalGain);
         }

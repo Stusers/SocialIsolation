@@ -10,31 +10,28 @@ import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.storage.DimensionDataStorage;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
  * Server-side persistent storage for all player social data.
- * Stored in the overworld's data folder as "socialisolation_data.dat".
- *
- * Call {@link #get(MinecraftServer)} to retrieve (or create) the instance.
- * Call {@link #setDirty()} after any mutation so NeoForge writes it to disk.
+ * Also persists the set of "Willson" slime UUIDs that count as social companions.
  */
 public class SocialSavedData extends SavedData {
 
     private static final String DATA_KEY = "socialisolation_data";
 
     private final Map<UUID, PlayerSocialData> playerDataMap = new HashMap<>();
+    /** UUIDs of slimes registered as Willson companions — treated like players for proximity. */
+    private final Set<UUID> willsonSlimes = new HashSet<>();
 
     // ── Factory / access ─────────────────────────────────────────────────────
 
     private static final SavedData.Factory<SocialSavedData> FACTORY =
             new SavedData.Factory<>(SocialSavedData::new, SocialSavedData::load, null);
 
-    /**
-     * Retrieve the singleton instance from the overworld's data storage.
-     * Creates a fresh instance if none exists yet.
-     */
     public static SocialSavedData get(MinecraftServer server) {
         DimensionDataStorage storage = server.overworld().getDataStorage();
         return storage.computeIfAbsent(FACTORY, DATA_KEY);
@@ -42,16 +39,32 @@ public class SocialSavedData extends SavedData {
 
     // ── Player data access ───────────────────────────────────────────────────
 
-    /**
-     * Returns the social data for the given player UUID,
-     * creating a default entry if one does not yet exist.
-     */
     public PlayerSocialData getOrCreate(UUID playerId) {
         return playerDataMap.computeIfAbsent(playerId, id -> new PlayerSocialData());
     }
 
     public boolean has(UUID playerId) {
         return playerDataMap.containsKey(playerId);
+    }
+
+    // ── Willson companion access ─────────────────────────────────────────────
+
+    public Set<UUID> getWillsonSlimes() { return willsonSlimes; }
+
+    public boolean addWillson(UUID uuid) {
+        boolean added = willsonSlimes.add(uuid);
+        if (added) setDirty();
+        return added;
+    }
+
+    public boolean removeWillson(UUID uuid) {
+        boolean removed = willsonSlimes.remove(uuid);
+        if (removed) setDirty();
+        return removed;
+    }
+
+    public boolean isWillson(UUID uuid) {
+        return willsonSlimes.contains(uuid);
     }
 
     // ── NBT serialisation ────────────────────────────────────────────────────
@@ -66,6 +79,15 @@ public class SocialSavedData extends SavedData {
             list.add(playerTag);
         }
         tag.put("players", list);
+
+        ListTag willsonList = new ListTag();
+        for (UUID uuid : willsonSlimes) {
+            CompoundTag wTag = new CompoundTag();
+            wTag.putUUID("uuid", uuid);
+            willsonList.add(wTag);
+        }
+        tag.put("willsonSlimes", willsonList);
+
         return tag;
     }
 
@@ -78,8 +100,14 @@ public class SocialSavedData extends SavedData {
             PlayerSocialData playerData = PlayerSocialData.load(playerTag.getCompound("data"));
             data.playerDataMap.put(uuid, playerData);
         }
-        SocialIsolation.LOGGER.info("Loaded social data for {} player(s).", data.playerDataMap.size());
+
+        ListTag willsonList = tag.getList("willsonSlimes", Tag.TAG_COMPOUND);
+        for (int i = 0; i < willsonList.size(); i++) {
+            data.willsonSlimes.add(willsonList.getCompound(i).getUUID("uuid"));
+        }
+
+        SocialIsolation.LOGGER.info("Loaded social data for {} player(s), {} Willson slime(s).",
+                data.playerDataMap.size(), data.willsonSlimes.size());
         return data;
     }
 }
-
