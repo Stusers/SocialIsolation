@@ -1,12 +1,14 @@
 package com.example.socialisolation;
 
 import com.example.socialisolation.commands.CommandRegistrar;
+import com.example.socialisolation.config.ClientConfig;
 import com.example.socialisolation.config.SocialConfig;
 import com.example.socialisolation.effects.ModEffects;
 import com.example.socialisolation.events.PlayerJoinLeaveHandler;
 import com.example.socialisolation.events.PlayerTickHandler;
 import com.example.socialisolation.events.XpBoostHandler;
 import com.mojang.logging.LogUtils;
+import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -22,6 +24,7 @@ public class SocialIsolation {
 
     public SocialIsolation(IEventBus modEventBus, ModContainer modContainer) {
         modContainer.registerConfig(ModConfig.Type.SERVER, SocialConfig.SPEC, "socialisolation-server.toml");
+        modContainer.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC, "socialisolation-client.toml");
 
         ModEffects.register(modEventBus);
 
