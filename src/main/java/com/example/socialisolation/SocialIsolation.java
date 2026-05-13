@@ -2,6 +2,7 @@ package com.example.socialisolation;
 
 import com.example.socialisolation.commands.CommandRegistrar;
 import com.example.socialisolation.config.SocialConfig;
+import com.example.socialisolation.effects.ModEffects;
 import com.example.socialisolation.events.PlayerJoinLeaveHandler;
 import com.example.socialisolation.events.PlayerTickHandler;
 import com.mojang.logging.LogUtils;
@@ -20,6 +21,9 @@ public class SocialIsolation {
 
     public SocialIsolation(IEventBus modEventBus, ModContainer modContainer) {
         modContainer.registerConfig(ModConfig.Type.SERVER, SocialConfig.SPEC, "socialisolation-server.toml");
+
+        // Register custom MobEffects
+        ModEffects.register(modEventBus);
 
         NeoForge.EVENT_BUS.register(new CommandRegistrar());
         NeoForge.EVENT_BUS.register(new PlayerTickHandler());
