@@ -17,6 +17,17 @@ public class SocialCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
         dispatcher.register(Commands.literal("social")
+                .then(Commands.literal("meter")
+                        .executes(ctx -> {
+                            try {
+                                ServerPlayer p = ctx.getSource().getPlayerOrException();
+                                return executeGet(ctx.getSource(), p);
+                            } catch (CommandSyntaxException e) {
+                                ctx.getSource().sendFailure(Component.literal("You must specify a player when running from console."));
+                                return 0;
+                            }
+                        })
+                )
                 .then(Commands.literal("get")
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(ctx -> executeGet(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))
@@ -55,6 +66,20 @@ public class SocialCommand {
                                 )
                         )
                 )
+                .then(Commands.literal("regained")
+                        .then(Commands.argument("player", EntityArgument.player())
+                                .executes(ctx -> executeRegained(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))
+                        )
+                        .executes(ctx -> {
+                            try {
+                                ServerPlayer p = ctx.getSource().getPlayerOrException();
+                                return executeRegained(ctx.getSource(), p);
+                            } catch (CommandSyntaxException e) {
+                                ctx.getSource().sendFailure(Component.literal("You must specify a player when running from console."));
+                                return 0;
+                            }
+                        })
+                )
         );
     }
 
@@ -63,7 +88,10 @@ public class SocialCommand {
         SocialSavedData saved = SocialSavedData.get(server);
         PlayerSocialData data = saved.getOrCreate(target.getUUID());
         float meter = data.getSocialMeter();
-        source.sendSuccess(() -> Component.literal("Social meter for " + target.getName().getString() + ": " + String.format("%.2f", meter)), false);
+        float totalGained = data.getTotalPointsRegained();
+        source.sendSuccess(() -> Component.literal(
+                "Social meter for " + target.getName().getString() + ": " + String.format("%.2f", meter)
+                        + " (total gained: " + String.format("%.2f", totalGained) + ")"), false);
         return 1;
     }
 
@@ -74,6 +102,16 @@ public class SocialCommand {
         data.setSocialMeter(value);
         saved.setDirty();
         source.sendSuccess(() -> Component.literal("Set social meter for " + target.getName().getString() + " to " + value), true);
+        return 1;
+    }
+
+    private static int executeRegained(CommandSourceStack source, ServerPlayer target) {
+        MinecraftServer server = source.getServer();
+        SocialSavedData saved = SocialSavedData.get(server);
+        PlayerSocialData data = saved.getOrCreate(target.getUUID());
+        float total = data.getTotalPointsRegained();
+        source.sendSuccess(() -> Component.literal(
+                "Total social points regained by " + target.getName().getString() + ": " + String.format("%.2f", total)), false);
         return 1;
     }
 }

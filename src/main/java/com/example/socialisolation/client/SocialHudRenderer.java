@@ -1,7 +1,6 @@
 package com.example.socialisolation.client;
 
 import com.example.socialisolation.config.ClientConfig;
-import com.example.socialisolation.config.SocialConfig;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -15,11 +14,20 @@ import net.minecraft.world.entity.player.Player;
  *
  * Position and scale are controlled by ClientConfig (editable via drag-and-drop in chat).
  * Default position is above the hunger bar on the right side.
+ *
+ * NOTE: Tier thresholds are hardcoded here to match server defaults (60/40/15).
+ * The server config may differ, but the visual tiers should align closely enough
+ * since most servers will use defaults. The server sends the raw meter value only.
  */
 public class SocialHudRenderer implements LayeredDraw.Layer {
 
     static final int BAR_WIDTH  = 90;
     static final int BAR_HEIGHT = 8;
+
+    // Tier thresholds (must match SocialConfig defaults)
+    private static final float THRESHOLD_THRIVING = 60.0f;
+    private static final float THRESHOLD_LONELY   = 40.0f;
+    private static final float THRESHOLD_ISOLATED = 15.0f;
 
     private static final int C_THRIVING = 0xFF4CAF50; // green
     private static final int C_NEUTRAL  = 0xFFFFC107; // amber
@@ -37,7 +45,7 @@ public class SocialHudRenderer implements LayeredDraw.Layer {
         if (!ClientConfig.HUD_ENABLED.get()) return;
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.screen != null) return;
+        if (mc.player == null) return;
         Player player = mc.player;
         if (!player.isAlive() || player.isSpectator()) return;
 
@@ -113,16 +121,16 @@ public class SocialHudRenderer implements LayeredDraw.Layer {
     }
 
     private static String getTierName(float meter) {
-        if (meter >= SocialConfig.THRESHOLD_THRIVING.get().floatValue())  return "Thriving";
-        if (meter >= SocialConfig.THRESHOLD_LONELY.get().floatValue())    return "Neutral";
-        if (meter >= SocialConfig.THRESHOLD_ISOLATED.get().floatValue())  return "Lonely";
+        if (meter >= THRESHOLD_THRIVING) return "Thriving";
+        if (meter >= THRESHOLD_LONELY)   return "Neutral";
+        if (meter >= THRESHOLD_ISOLATED) return "Lonely";
         return "Isolated";
     }
 
     private static int interpolateColour(float meter) {
-        float t = SocialConfig.THRESHOLD_THRIVING.get().floatValue();
-        float l = SocialConfig.THRESHOLD_LONELY.get().floatValue();
-        float i = SocialConfig.THRESHOLD_ISOLATED.get().floatValue();
+        float t = THRESHOLD_THRIVING;
+        float l = THRESHOLD_LONELY;
+        float i = THRESHOLD_ISOLATED;
 
         if (meter >= t) return C_THRIVING;
         if (meter >= l) return lerpColour(meter, l, t, C_LONELY, C_NEUTRAL);

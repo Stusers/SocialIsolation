@@ -13,8 +13,7 @@ import net.minecraft.world.entity.player.Player;
  * Effects are our own custom MobEffects registered in ModEffects — they
  * never conflict with vanilla or other mods' effects.
  *
- * Duration is Integer.MAX_VALUE (effectively infinite) — effects are
- * removed explicitly on tier change, so there is zero HUD flickering.
+ * Duration is MobEffectInstance.INFINITE_DURATION (-1) = permanent until explicitly removed. No flickering.
  * ambient=true suppresses the swirling particles so the screen isn't
  * cluttered, but the icon still shows in the HUD.
  *
@@ -32,8 +31,8 @@ public class EffectApplicator {
     private static final Holder<MobEffect> EFFECT_LONELY    = ModEffects.SOCIAL_LONELY;
     private static final Holder<MobEffect> EFFECT_ISOLATED  = ModEffects.SOCIAL_ISOLATED;
 
-    // Integer.MAX_VALUE = permanent until explicitly removed. No flickering.
-    private static final int PERMANENT = Integer.MAX_VALUE;
+    // MobEffectInstance.INFINITE_DURATION (-1) = permanent until explicitly removed. No flickering.
+    private static final int PERMANENT = MobEffectInstance.INFINITE_DURATION;
 
     // ── Public API ────────────────────────────────────────────────────────────
 

@@ -24,6 +24,8 @@ public class PlayerSocialData {
     private long lastMeterUpdateMs;
     /** The tier last applied to this player — used to avoid redundant effect clear/re-add cycles. */
     private int lastAppliedTierOrdinal = -1;
+    /** Cumulative total of all social meter points ever gained (not lost). Useful for progression/land-claim integrations. */
+    private float totalPointsRegained = 0f;
 
     public PlayerSocialData() {
         this.socialMeter = SOCIAL_METER_DEFAULT;
@@ -35,6 +37,8 @@ public class PlayerSocialData {
 
     public float getSocialMeter() { return socialMeter; }
 
+    public float getTotalPointsRegained() { return totalPointsRegained; }
+
     public void setSocialMeter(float value) {
         this.socialMeter = Math.max(0f, Math.min(100f, value));
     }
@@ -44,8 +48,12 @@ public class PlayerSocialData {
         long now = System.currentTimeMillis();
         float deltaSeconds = (now - lastMeterUpdateMs) / 1000.0f;
         if (deltaSeconds > 0) {
-            setSocialMeter(socialMeter + ratePerSecond * deltaSeconds);
+            float delta = ratePerSecond * deltaSeconds;
+            setSocialMeter(socialMeter + delta);
             lastMeterUpdateMs = now;
+            if (delta > 0) {
+                totalPointsRegained += delta;
+            }
         }
     }
 
@@ -116,7 +124,7 @@ public class PlayerSocialData {
         lastMeterUpdateMs = System.currentTimeMillis(); // Prevent offline time from being counted as "alone time"
     }
 
-    // ── Effect tier tracking ─────────────────────────────────────────────────
+    // ── Effect tier tracking ─────────────────────���───────────────────────────
 
     public int getLastAppliedTierOrdinal() { return lastAppliedTierOrdinal; }
     public void setLastAppliedTierOrdinal(int ordinal) { this.lastAppliedTierOrdinal = ordinal; }
@@ -129,6 +137,7 @@ public class PlayerSocialData {
         tag.putLong("lastOnlineMs", lastOnlineMs);
         tag.putLong("lastMeterUpdateMs", lastMeterUpdateMs);
         tag.putInt("lastAppliedTierOrdinal", lastAppliedTierOrdinal);
+        tag.putFloat("totalPointsRegained", totalPointsRegained);
 
         ListTag familiarityList = new ListTag();
         for (Map.Entry<UUID, Float> entry : familiarityMap.entrySet()) {
@@ -148,6 +157,9 @@ public class PlayerSocialData {
         data.lastOnlineMs = tag.getLong("lastOnlineMs");
         data.lastMeterUpdateMs = tag.getLong("lastMeterUpdateMs");
         data.lastAppliedTierOrdinal = tag.getInt("lastAppliedTierOrdinal");
+        if (tag.contains("totalPointsRegained", net.minecraft.nbt.Tag.TAG_ANY_NUMERIC)) {
+            data.totalPointsRegained = tag.getFloat("totalPointsRegained");
+        }
 
         ListTag familiarityList = tag.getList("familiarity", Tag.TAG_COMPOUND);
         for (int i = 0; i < familiarityList.size(); i++) {

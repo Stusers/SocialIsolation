@@ -94,7 +94,7 @@ public class SocialHudEditor {
             double currentScale = ClientConfig.HUD_SCALE.get();
             double delta = event.getScrollDeltaY() > 0 ? 0.1 : -0.1;
             double newScale = Math.round((currentScale + delta) * 10.0) / 10.0;
-            newScale = Math.max(0.5, Math.min(2.0, newScale));
+            newScale = Math.max(0.25, Math.min(3.0, newScale));
             ClientConfig.HUD_SCALE.set(newScale);
             event.setCanceled(true);
         }
@@ -134,4 +134,3 @@ public class SocialHudEditor {
         return isDragging;
     }
 }
-
