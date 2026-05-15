@@ -1,14 +1,11 @@
 package com.example.socialisolation.util;
 
-import com.example.socialisolation.data.SocialSavedData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.monster.Slime;
 import net.minecraft.world.phys.AABB;
 
 import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 /**
  * Lightweight proximity helpers using vanilla's AABB entity query.
@@ -30,23 +27,27 @@ public class ProximityUtil {
     }
 
     /**
-     * Returns how many "social sources" are near this player.
-     * Counts real players + any registered Willson slimes within range.
-     * Willson slimes each count as 1 social source (same as a player).
+     * Returns all nearby Slimes named "Willson" (case-insensitive) within {@code radius}.
+     * These count as social sources just like real players.
      */
-    public static int countNearbySocialSources(ServerPlayer player, int radius, SocialSavedData savedData) {
-        int count = getNearbyPlayers(player, radius).size();
+    public static List<Slime> getNearbyWillsonSlimes(ServerPlayer player, int radius) {
+        ServerLevel level = player.serverLevel();
+        AABB searchBox = player.getBoundingBox().inflate(radius);
+        return level.getEntitiesOfClass(Slime.class, searchBox, ProximityUtil::isWillson);
+    }
 
-        Set<UUID> willsonIds = savedData.getWillsonSlimes();
-        if (!willsonIds.isEmpty()) {
-            ServerLevel level = player.serverLevel();
-            AABB searchBox = player.getBoundingBox().inflate(radius);
-            List<Slime> nearbySlimes = level.getEntitiesOfClass(Slime.class, searchBox,
-                    slime -> willsonIds.contains(slime.getUUID()));
-            count += nearbySlimes.size();
-        }
+    private static boolean isWillson(Slime slime) {
+        if (!slime.hasCustomName()) return false;
+        String name = slime.getCustomName().getString();
+        return name.equalsIgnoreCase("willson");
+    }
 
-        return count;
+    /**
+     * Returns how many "social sources" are near this player.
+     * Counts real players + any Willson-named slimes within range.
+     */
+    public static int countNearbySocialSources(ServerPlayer player, int radius) {
+        return getNearbyPlayers(player, radius).size() + getNearbyWillsonSlimes(player, radius).size();
     }
 
     public static boolean hasNearbyPlayer(ServerPlayer player, int radius) {

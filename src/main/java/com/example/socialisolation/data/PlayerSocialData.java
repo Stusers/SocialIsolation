@@ -102,6 +102,9 @@ public class PlayerSocialData {
     // ── Effective gain multiplier ────────────────────────────────────────────
 
     public float effectiveGainMultiplier(UUID other) {
+        if (!com.example.socialisolation.config.SocialConfig.ENABLE_FAMILIARITY.get()) {
+            return 1.0f;
+        }
         return 1.0f - getFamiliarity(other);
     }
 

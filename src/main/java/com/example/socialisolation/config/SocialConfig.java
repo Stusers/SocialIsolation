@@ -61,6 +61,10 @@ public class SocialConfig {
             .comment("Whether to apply negative effects when the meter is low.")
             .define("enablePenalties", true);
 
+    public static final ModConfigSpec.BooleanValue ENABLE_FAMILIARITY = BUILDER
+            .comment("Whether to enable the familiarity system (anti-AFK). If false, players always give full meter gain.")
+            .define("enableFamiliarity", true);
+
     public static final ModConfigSpec.BooleanValue PHANTOM_SPAWN_WHEN_ISOLATED = BUILDER
             .comment("Whether phantoms spawn on isolated players as if they haven't slept for 3 days.")
             .define("phantomSpawnWhenIsolated", true);

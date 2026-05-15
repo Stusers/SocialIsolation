@@ -7,6 +7,8 @@ import com.example.socialisolation.effects.EffectApplicator;
 import com.example.socialisolation.network.SocialMeterPayload;
 import com.example.socialisolation.util.ProximityUtil;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.stats.Stats;
+import net.minecraft.world.entity.monster.Slime;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -65,6 +67,16 @@ public class PlayerTickHandler {
                     data.setLastAppliedTierOrdinal(tier.ordinal());
                     savedData.setDirty();
                 }
+
+                // Phantom spawn condition: when isolated, act as if player hasn't slept for 3+ days
+                if (tier == EffectApplicator.SocialTier.ISOLATED
+                        && SocialConfig.PHANTOM_SPAWN_WHEN_ISOLATED.get()) {
+                    player.getStats().setValue(
+                            player,
+                            Stats.CUSTOM.get(Stats.TIME_SINCE_REST),
+                            72001 // phantoms spawn at >= 72000 ticks without rest
+                    );
+                }
             }
         }
 
@@ -89,7 +101,8 @@ public class PlayerTickHandler {
 
         int radius = SocialConfig.PROXIMITY_RADIUS.get();
         List<ServerPlayer> nearbyPlayers = ProximityUtil.getNearbyPlayers(player, radius);
-        int totalSources = ProximityUtil.countNearbySocialSources(player, radius, savedData);
+        List<Slime> nearbyWillsons = ProximityUtil.getNearbyWillsonSlimes(player, radius);
+        int totalSources = nearbyPlayers.size() + nearbyWillsons.size();
 
         if (totalSources == 0) {
             // Alone — drain meter (time-accurate)
@@ -98,7 +111,7 @@ public class PlayerTickHandler {
         } else {
             float baseGainPerSecond = SocialConfig.METER_GAIN_RATE.get().floatValue();
 
-            // Familiarity only applies to real players (Willson never becomes familiar)
+            // Familiarity applies to real players and Willson slimes alike
             float weightedSum = 0f;
             for (ServerPlayer other : nearbyPlayers) {
                 weightedSum += data.effectiveGainMultiplier(other.getUUID());
@@ -107,9 +120,12 @@ public class PlayerTickHandler {
                 data.markSeenTogether(other.getUUID());
             }
 
-            // Willson slimes contribute a flat 1.0 multiplier each (no familiarity decay)
-            int willsonCount = totalSources - nearbyPlayers.size();
-            weightedSum += willsonCount;
+            for (Slime willson : nearbyWillsons) {
+                weightedSum += data.effectiveGainMultiplier(willson.getUUID());
+                float familiarityGain = SocialConfig.FAMILIARITY_GAIN_RATE.get().floatValue();
+                data.addFamiliarity(willson.getUUID(), familiarityGain);
+                data.markSeenTogether(willson.getUUID());
+            }
 
             float groupMultiplier = Math.min(1.5f, 1.0f + (float)(Math.log(totalSources) / Math.log(2)) * 0.25f);
             float totalGainPerSecond = baseGainPerSecond * weightedSum * groupMultiplier;

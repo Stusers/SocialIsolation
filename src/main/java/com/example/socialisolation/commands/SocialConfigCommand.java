@@ -28,6 +28,8 @@ import net.minecraft.network.chat.Component;
  *   thresholdIsolated     (double)
  *   enableBenefits        (bool)
  *   enablePenalties       (bool)
+ *   enableFamiliarity     (bool)
+ *   phantomSpawnWhenIsolated (bool)
  */
 public class SocialConfigCommand {
 
@@ -69,7 +71,7 @@ public class SocialConfigCommand {
             "proximityRadius", "meterGainRate", "meterDrainRate",
             "familiarityGainRate", "familiarityDecayRate",
             "thresholdThriving", "thresholdLonely", "thresholdIsolated",
-            "enableBenefits", "enablePenalties"
+            "enableBenefits", "enablePenalties", "enableFamiliarity", "phantomSpawnWhenIsolated"
     };
 
     private static int executeGet(CommandSourceStack src, String key) {
@@ -84,6 +86,8 @@ public class SocialConfigCommand {
             case "thresholdIsolated"    -> String.valueOf(SocialConfig.THRESHOLD_ISOLATED.get());
             case "enableBenefits"       -> String.valueOf(SocialConfig.ENABLE_BENEFITS.get());
             case "enablePenalties"      -> String.valueOf(SocialConfig.ENABLE_PENALTIES.get());
+            case "enableFamiliarity"    -> String.valueOf(SocialConfig.ENABLE_FAMILIARITY.get());
+            case "phantomSpawnWhenIsolated" -> String.valueOf(SocialConfig.PHANTOM_SPAWN_WHEN_ISOLATED.get());
             default -> null;
         };
         if (value == null) {
@@ -107,6 +111,8 @@ public class SocialConfigCommand {
                 case "thresholdIsolated"    -> SocialConfig.THRESHOLD_ISOLATED.set(Double.parseDouble(rawValue.trim()));
                 case "enableBenefits"       -> SocialConfig.ENABLE_BENEFITS.set(Boolean.parseBoolean(rawValue.trim()));
                 case "enablePenalties"      -> SocialConfig.ENABLE_PENALTIES.set(Boolean.parseBoolean(rawValue.trim()));
+                case "enableFamiliarity"    -> SocialConfig.ENABLE_FAMILIARITY.set(Boolean.parseBoolean(rawValue.trim()));
+                case "phantomSpawnWhenIsolated" -> SocialConfig.PHANTOM_SPAWN_WHEN_ISOLATED.set(Boolean.parseBoolean(rawValue.trim()));
                 default -> {
                     src.sendFailure(Component.literal("Unknown config key: " + key + ". Use /social config list."));
                     return 0;
@@ -132,9 +138,10 @@ public class SocialConfigCommand {
                 "  thresholdLonely       = " + SocialConfig.THRESHOLD_LONELY.get() + "\n" +
                 "  thresholdIsolated     = " + SocialConfig.THRESHOLD_ISOLATED.get() + "\n" +
                 "  enableBenefits        = " + SocialConfig.ENABLE_BENEFITS.get() + "\n" +
-                "  enablePenalties       = " + SocialConfig.ENABLE_PENALTIES.get()
+                "  enablePenalties       = " + SocialConfig.ENABLE_PENALTIES.get() + "\n" +
+                "  enableFamiliarity     = " + SocialConfig.ENABLE_FAMILIARITY.get() + "\n" +
+                "  phantomSpawnWhenIsolated = " + SocialConfig.PHANTOM_SPAWN_WHEN_ISOLATED.get()
         ), false);
         return 1;
     }
 }
-
