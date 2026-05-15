@@ -61,5 +61,9 @@ public class SocialConfig {
             .comment("Whether to apply negative effects when the meter is low.")
             .define("enablePenalties", true);
 
+    public static final ModConfigSpec.BooleanValue PHANTOM_SPAWN_WHEN_ISOLATED = BUILDER
+            .comment("Whether phantoms spawn on isolated players as if they haven't slept for 3 days.")
+            .define("phantomSpawnWhenIsolated", true);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 }

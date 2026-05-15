@@ -9,7 +9,6 @@ public class CommandRegistrar {
     public void onRegisterCommands(RegisterCommandsEvent event) {
         SocialCommand.register(event.getDispatcher(), event.getBuildContext());
         SocialConfigCommand.register(event.getDispatcher(), event.getBuildContext());
-        WillsonCommand.register(event.getDispatcher(), event.getBuildContext());
         SocialIsolation.LOGGER.info("Social Isolation commands registered.");
     }
 }
