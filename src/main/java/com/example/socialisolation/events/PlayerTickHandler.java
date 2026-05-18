@@ -68,13 +68,15 @@ public class PlayerTickHandler {
                     savedData.setDirty();
                 }
 
-                // Phantom spawn condition: when isolated, act as if player hasn't slept for 3+ days
+                // Phantom spawn condition: when isolated, act as if player hasn't slept for 5+ days
+                // (vanilla threshold is 72000 ticks / 3 days; we set it much higher so the
+                // random spawn chance is significantly increased, making phantoms actually appear)
                 if (tier == EffectApplicator.SocialTier.ISOLATED
                         && SocialConfig.PHANTOM_SPAWN_WHEN_ISOLATED.get()) {
                     player.getStats().setValue(
                             player,
                             Stats.CUSTOM.get(Stats.TIME_SINCE_REST),
-                            72001 // phantoms spawn at >= 72000 ticks without rest
+                            120000 // well above 72000 threshold — higher value = better phantom spawn chance
                     );
                 }
             }

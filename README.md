@@ -11,8 +11,8 @@ Social Isolation adds a **Social Meter** mechanic to multiplayer servers. Player
 ### Social Meter
 - **Thriving (>=60)** -- +15% block break speed, +15% XP gain
 - **Neutral (40-60)** -- No effects
-- **Lonely (15-40)** -- Mild mining fatigue, hunger drain
-- **Isolated (<15)** -- Severe penalties + phantom insomnia (as if 3 days without sleep)
+- **Lonely (15-40)** -- Mild mining slowdown (-15% block break speed)
+- **Isolated (<15)** -- Moderate mining slowdown (-30% block break speed) + phantom insomnia (as if 3 days without sleep)
 
 ### Familiarity System
 - Real players and Willson slimes build familiarity over time (~5 hours to max)
