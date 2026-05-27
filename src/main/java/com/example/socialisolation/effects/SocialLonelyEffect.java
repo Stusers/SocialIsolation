@@ -11,7 +11,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  * "Restless" — applied when the social meter is between thresholdIsolated and thresholdLonely.
  *
  * Attribute effect:
- *   -0.15 Block Break Speed (mild mining slowdown, ~15%)
+ *   -0.06 Block Break Speed (mild mining slowdown, ~6%)
  *
  * No hunger drain — that would force MORE grinding for food, defeating the mod's purpose.
  */
@@ -22,6 +22,6 @@ public class SocialLonelyEffect extends MobEffect {
 
     public SocialLonelyEffect() {
         super(MobEffectCategory.HARMFUL, 0xFF9800); // orange
-        this.addAttributeModifier(Attributes.BLOCK_BREAK_SPEED, BREAK_SPEED_MOD_ID, -0.15, AttributeModifier.Operation.ADD_VALUE);
+        this.addAttributeModifier(Attributes.BLOCK_BREAK_SPEED, BREAK_SPEED_MOD_ID, -0.06, AttributeModifier.Operation.ADD_VALUE);
     }
 }

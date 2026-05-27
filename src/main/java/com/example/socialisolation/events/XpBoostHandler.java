@@ -3,55 +3,29 @@ package com.example.socialisolation.events;
 import com.example.socialisolation.effects.ModEffects;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.event.entity.living.LivingExperienceDropEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerXpEvent;
 
 /**
- * Boosts all XP gains by 15% when the player has the SocialThrivingEffect.
+ * Boosts all XP gains by 8% when the player has the SocialThrivingEffect.
  *
- * Covers:
- *   - Mining / smelting / trading / breeding (PlayerXpEvent.XpChange)
- *   - Mob kills (LivingExperienceDropEvent)
- *   - XP orb pickups (PlayerXpEvent.PickupXp)
- *
- * This is more rewarding than Luck because it directly speeds up enchanting,
- * which is a core progression system that benefits from group play.
+ * Covers ALL sources: mining, smelting, trading, breeding, mob kills, XP orbs, etc.
+ * PlayerXpEvent.XpChange fires for every call to giveExperiencePoints(), so no
+ * additional handlers are needed (and would cause double-dipping).
  */
 public class XpBoostHandler {
 
-    private static final float XP_BOOST_MULTIPLIER = 1.15f;
+    private static final float XP_BOOST_MULTIPLIER = 1.08f;
 
     @SubscribeEvent
     public void onXpChange(PlayerXpEvent.XpChange event) {
         Player player = event.getEntity();
-        if (player.hasEffect(ModEffects.SOCIAL_THRIVING)) {
-            int boosted = Math.round(event.getAmount() * XP_BOOST_MULTIPLIER);
-            if (boosted != event.getAmount()) {
+        int amount = event.getAmount();
+        // Only boost gains, not losses (e.g. enchanting)
+        if (amount > 0 && player.hasEffect(ModEffects.SOCIAL_THRIVING)) {
+            int boosted = Math.round(amount * XP_BOOST_MULTIPLIER);
+            if (boosted != amount) {
                 event.setAmount(boosted);
             }
         }
     }
-
-    @SubscribeEvent
-    public void onMobXpDrop(LivingExperienceDropEvent event) {
-        Player player = event.getAttackingPlayer();
-        if (player == null) return;
-        if (player.hasEffect(ModEffects.SOCIAL_THRIVING)) {
-            int boosted = Math.round(event.getDroppedExperience() * XP_BOOST_MULTIPLIER);
-            event.setDroppedExperience(boosted);
-        }
-    }
-
-    @SubscribeEvent
-    public void onXpPickup(PlayerXpEvent.PickupXp event) {
-        Player player = event.getEntity();
-        if (player.hasEffect(ModEffects.SOCIAL_THRIVING)) {
-            // PickupXp doesn't have a setAmount, but the orb's value is what matters.
-            // We modify the orb directly before pickup.
-            var orb = event.getOrb();
-            int boosted = Math.round(orb.value * XP_BOOST_MULTIPLIER);
-            orb.value = boosted;
-        }
-    }
 }
-

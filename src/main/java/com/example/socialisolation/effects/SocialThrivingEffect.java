@@ -11,9 +11,9 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
  * "In Good Company" — applied when the social meter is >= thresholdThriving.
  *
  * Attribute effects:
- *   +0.15 Block Break Speed (slight mining bonus, ~15%)
+ *   +0.08 Block Break Speed (slight mining bonus, ~8%)
  *
- * XP boost is handled externally via XpBoostHandler (PlayerXpEvent + LivingExperienceDropEvent)
+ * XP boost is handled externally via XpBoostHandler (PlayerXpEvent)
  * so it applies to ALL sources: mining, smelting, mob kills, trading, etc.
  */
 public class SocialThrivingEffect extends MobEffect {
@@ -23,6 +23,6 @@ public class SocialThrivingEffect extends MobEffect {
 
     public SocialThrivingEffect() {
         super(MobEffectCategory.BENEFICIAL, 0x4CAF50); // green
-        this.addAttributeModifier(Attributes.BLOCK_BREAK_SPEED, SPEED_MOD_ID, 0.15, AttributeModifier.Operation.ADD_VALUE);
+        this.addAttributeModifier(Attributes.BLOCK_BREAK_SPEED, SPEED_MOD_ID, 0.08, AttributeModifier.Operation.ADD_VALUE);
     }
 }
