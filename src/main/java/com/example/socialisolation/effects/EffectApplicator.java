@@ -39,9 +39,9 @@ public class EffectApplicator {
     public enum SocialTier { THRIVING, NEUTRAL, LONELY, ISOLATED }
 
     public static SocialTier getTier(float meter) {
-        if (meter >= SocialConfig.THRESHOLD_THRIVING.get().floatValue())  return SocialTier.THRIVING;
-        if (meter >= SocialConfig.THRESHOLD_LONELY.get().floatValue())    return SocialTier.NEUTRAL;
-        if (meter >= SocialConfig.THRESHOLD_ISOLATED.get().floatValue())  return SocialTier.LONELY;
+        if (meter >= SocialConfig.THRESHOLD_THRIVING.get())  return SocialTier.THRIVING;
+        if (meter >= SocialConfig.THRESHOLD_LONELY.get())    return SocialTier.NEUTRAL;
+        if (meter >= SocialConfig.THRESHOLD_ISOLATED.get())  return SocialTier.LONELY;
         return SocialTier.ISOLATED;
     }
 

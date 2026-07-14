@@ -2,6 +2,7 @@ package com.example.socialisolation.commands;
 
 import com.example.socialisolation.data.PlayerSocialData;
 import com.example.socialisolation.data.SocialSavedData;
+import com.example.socialisolation.effects.EffectApplicator;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -17,81 +18,63 @@ public class SocialCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext buildContext) {
         dispatcher.register(Commands.literal("social")
-                .then(Commands.literal("meter")
+                // /social status — check your own meter and tier (no OP required)
+                .then(Commands.literal("status")
                         .executes(ctx -> {
                             try {
-                                ServerPlayer p = ctx.getSource().getPlayerOrException();
-                                return executeGet(ctx.getSource(), p);
+                                return executeStatus(ctx.getSource(), ctx.getSource().getPlayerOrException());
                             } catch (CommandSyntaxException e) {
-                                ctx.getSource().sendFailure(Component.literal("You must specify a player when running from console."));
+                                ctx.getSource().sendFailure(Component.literal("Must be run as a player."));
                                 return 0;
                             }
                         })
-                )
-                .then(Commands.literal("get")
+                        // /social status <player> — OP only for querying others
                         .then(Commands.argument("player", EntityArgument.player())
-                                .executes(ctx -> executeGet(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))
+                                .requires(src -> src.hasPermission(2))
+                                .executes(ctx -> executeStatus(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))
                         )
-                        .executes(ctx -> {
-                            try {
-                                ServerPlayer p = ctx.getSource().getPlayerOrException();
-                                return executeGet(ctx.getSource(), p);
-                            } catch (CommandSyntaxException e) {
-                                ctx.getSource().sendFailure(Component.literal("You must specify a player when running from console."));
-                                return 0;
-                            }
-                        })
                 )
+                // /social set <value> / /social set <player> <value> — OP only
                 .then(Commands.literal("set")
                         .requires(src -> src.hasPermission(2))
                         .then(Commands.argument("value", IntegerArgumentType.integer(0, 100))
                                 .executes(ctx -> {
                                     try {
                                         ServerPlayer p = ctx.getSource().getPlayerOrException();
-                                        int val = IntegerArgumentType.getInteger(ctx, "value");
-                                        return executeSet(ctx.getSource(), p, val);
+                                        return executeSet(ctx.getSource(), p, IntegerArgumentType.getInteger(ctx, "value"));
                                     } catch (CommandSyntaxException e) {
-                                        ctx.getSource().sendFailure(Component.literal("You must specify a player when running from console."));
+                                        ctx.getSource().sendFailure(Component.literal("Specify a player when running from console."));
                                         return 0;
                                     }
                                 })
                         )
                         .then(Commands.argument("player", EntityArgument.player())
                                 .then(Commands.argument("value", IntegerArgumentType.integer(0, 100))
-                                        .executes(ctx -> {
-                                            ServerPlayer target = EntityArgument.getPlayer(ctx, "player");
-                                            int val = IntegerArgumentType.getInteger(ctx, "value");
-                                            return executeSet(ctx.getSource(), target, val);
-                                        })
+                                        .executes(ctx -> executeSet(
+                                                ctx.getSource(),
+                                                EntityArgument.getPlayer(ctx, "player"),
+                                                IntegerArgumentType.getInteger(ctx, "value")))
                                 )
                         )
-                )
-                .then(Commands.literal("regained")
-                        .then(Commands.argument("player", EntityArgument.player())
-                                .executes(ctx -> executeRegained(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))
-                        )
-                        .executes(ctx -> {
-                            try {
-                                ServerPlayer p = ctx.getSource().getPlayerOrException();
-                                return executeRegained(ctx.getSource(), p);
-                            } catch (CommandSyntaxException e) {
-                                ctx.getSource().sendFailure(Component.literal("You must specify a player when running from console."));
-                                return 0;
-                            }
-                        })
                 )
         );
     }
 
-    private static int executeGet(CommandSourceStack source, ServerPlayer target) {
+    private static int executeStatus(CommandSourceStack source, ServerPlayer target) {
         MinecraftServer server = source.getServer();
         SocialSavedData saved = SocialSavedData.get(server);
         PlayerSocialData data = saved.getOrCreate(target.getUUID());
         float meter = data.getSocialMeter();
-        float totalGained = data.getTotalPointsRegained();
+        EffectApplicator.SocialTier tier = EffectApplicator.getTier(meter);
+
+        boolean isSelf = source.isPlayer() && source.getPlayer() == target;
+        String name = isSelf ? "Your" : target.getName().getString() + "'s";
+
+        float totalPoints = data.getTotalPointsRegained();
         source.sendSuccess(() -> Component.literal(
-                "Social meter for " + target.getName().getString() + ": " + String.format("%.2f", meter)
-                        + " (total gained: " + String.format("%.2f", totalGained) + ")"), false);
+                name + " social meter: " + String.format("%.1f", meter) + "/100 (" + tierLabel(tier) + ")" +
+                " | lifetime points: " + String.format("%.0f", totalPoints)
+        ), false);
         return 1;
     }
 
@@ -101,17 +84,17 @@ public class SocialCommand {
         PlayerSocialData data = saved.getOrCreate(target.getUUID());
         data.setSocialMeter(value);
         saved.setDirty();
-        source.sendSuccess(() -> Component.literal("Set social meter for " + target.getName().getString() + " to " + value), true);
+        source.sendSuccess(() -> Component.literal(
+                "Set " + target.getName().getString() + "'s social meter to " + value), true);
         return 1;
     }
 
-    private static int executeRegained(CommandSourceStack source, ServerPlayer target) {
-        MinecraftServer server = source.getServer();
-        SocialSavedData saved = SocialSavedData.get(server);
-        PlayerSocialData data = saved.getOrCreate(target.getUUID());
-        float total = data.getTotalPointsRegained();
-        source.sendSuccess(() -> Component.literal(
-                "Total social points regained by " + target.getName().getString() + ": " + String.format("%.2f", total)), false);
-        return 1;
+    private static String tierLabel(EffectApplicator.SocialTier tier) {
+        return switch (tier) {
+            case THRIVING -> "§aThriving§r";
+            case NEUTRAL  -> "§7Neutral§r";
+            case LONELY   -> "§eLonely§r";
+            case ISOLATED -> "§cIsolated§r";
+        };
     }
 }

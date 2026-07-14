@@ -1,5 +1,6 @@
 package com.example.socialisolation.config;
 
+import com.example.socialisolation.SocialIsolation;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
@@ -15,44 +16,39 @@ public class SocialConfig {
             .comment("Block radius within which another player counts as 'nearby'.")
             .defineInRange("proximityRadius", 24, 4, 128);
 
-    // ── Meter rates ──────────────────────────────────────────────────────────
-    public static final ModConfigSpec.DoubleValue METER_GAIN_RATE = BUILDER
-            .comment("Social meter gain per second when near at least one other player (before familiarity scaling).",
-                     "Default: 0.1667 — reaches 100 from 50 in ~5 minutes with a fresh (familiarity=0) player.")
-            .defineInRange("meterGainRate", 0.1667, 0.0, 100.0);
+    // ── Meter rates (expressed as minutes for human readability) ─────────────
+    public static final ModConfigSpec.IntValue MINUTES_TO_FULL_METER = BUILDER
+            .comment("Minutes of continuous social contact (with a fresh/unfamiliar player) needed to go from 0 to 100.")
+            .defineInRange("minutesToFullMeter", 10, 1, 600);
 
-    public static final ModConfigSpec.DoubleValue METER_DRAIN_RATE = BUILDER
-            .comment("Social meter drain per second when completely alone.",
-                     "Default: 0.0556 — drains from 50 to 0 in ~15 minutes alone.")
-            .defineInRange("meterDrainRate", 0.0556, 0.0, 100.0);
+    public static final ModConfigSpec.IntValue MINUTES_TO_EMPTY_METER = BUILDER
+            .comment("Minutes of being completely alone needed to drain the meter from 100 to 0.")
+            .defineInRange("minutesToEmptyMeter", 30, 1, 600);
 
-    // ── Familiarity ──────────────────────────────────────────────────────────
-    public static final ModConfigSpec.DoubleValue FAMILIARITY_GAIN_RATE = BUILDER
-            .comment("Familiarity gained per second spent near a specific player.",
-                     "Default: 0.00006 — reaches max familiarity (1.0) after ~5 hours together.",
-                     "At max familiarity, that player contributes zero meter gain (anti-AFK mechanic).")
-            .defineInRange("familiarityGainRate", 0.00006, 0.0, 1.0);
+    // ── Familiarity (expressed as hours for human readability) ───────────────
+    public static final ModConfigSpec.IntValue HOURS_TO_MAX_FAMILIARITY = BUILDER
+            .comment("Hours spent near a specific player before familiarity is maxed out (meter gain from them reaches zero).",
+                     "This is the anti-AFK mechanic — being with the same person for too long stops giving social credit.")
+            .defineInRange("hoursToMaxFamiliarity", 5, 1, 168);
 
-    public static final ModConfigSpec.DoubleValue FAMILIARITY_DECAY_RATE = BUILDER
-            .comment("Familiarity lost per real-world second spent apart (applied on login/periodically).",
-                     "Default: 0.00001157 — fully decays from 1.0 to 0 after ~24 hours apart.")
-            .defineInRange("familiarityDecayRate", 0.00001157, 0.0, 1.0);
+    public static final ModConfigSpec.IntValue HOURS_TO_LOSE_FAMILIARITY = BUILDER
+            .comment("Hours spent apart from a player before familiarity fully decays back to zero.")
+            .defineInRange("hoursToLoseFamiliarity", 24, 1, 720);
 
-    // ── Thresholds ───────────────────────────────────────────────────────────
-    public static final ModConfigSpec.DoubleValue THRESHOLD_THRIVING = BUILDER
-            .comment("Social meter value above which the player is considered 'Thriving' (benefits applied).",
-                     "Default: 60.0 — reachable in ~1 minute with a fresh friend when starting from 50.")
-            .defineInRange("thresholdThriving", 60.0, 0.0, 100.0);
+    // ── Thresholds (0–100) ───────────────────────────────────────────────────
+    public static final ModConfigSpec.IntValue THRESHOLD_THRIVING = BUILDER
+            .comment("Social meter value above which the player is 'Thriving' (benefits applied).")
+            .defineInRange("thresholdThriving", 60, 1, 99);
 
-    public static final ModConfigSpec.DoubleValue THRESHOLD_LONELY = BUILDER
+    public static final ModConfigSpec.IntValue THRESHOLD_LONELY = BUILDER
             .comment("Social meter value below which mild penalties are applied.")
-            .defineInRange("thresholdLonely", 40.0, 0.0, 100.0);
+            .defineInRange("thresholdLonely", 40, 1, 99);
 
-    public static final ModConfigSpec.DoubleValue THRESHOLD_ISOLATED = BUILDER
-            .comment("Social meter value below which moderate penalties are applied.")
-            .defineInRange("thresholdIsolated", 15.0, 0.0, 100.0);
+    public static final ModConfigSpec.IntValue THRESHOLD_ISOLATED = BUILDER
+            .comment("Social meter value below which severe penalties are applied. Must be less than thresholdLonely.")
+            .defineInRange("thresholdIsolated", 15, 1, 99);
 
-    // ── Toggle individual effects ────────────────────────────────────────────
+    // ── Toggles ──────────────────────────────────────────────────────────────
     public static final ModConfigSpec.BooleanValue ENABLE_BENEFITS = BUILDER
             .comment("Whether to apply positive effects when the meter is high.")
             .define("enableBenefits", true);
@@ -69,5 +65,59 @@ public class SocialConfig {
             .comment("Whether phantoms spawn on isolated players as if they haven't slept for 3 days.")
             .define("phantomSpawnWhenIsolated", true);
 
+    // ── Open Parties and Claims integration ──────────────────────────────────
+    public static final ModConfigSpec.IntValue OPAC_POINTS_PER_BONUS_CHUNK = BUILDER
+            .comment("Open Parties and Claims integration: base social points needed for the first bonus claim chunk.",
+                     "Cost scales exponentially — chunk N costs (pointsPerChunk × N) cumulative points.",
+                     "Set to 0 to disable the integration even if the mod is present.",
+                     "Default: 5000 — first chunk after ~83 min of social play, each subsequent chunk costs more.")
+            .defineInRange("opacPointsPerBonusChunk", 5000, 0, 10000000);
+
+    public static final ModConfigSpec.IntValue OPAC_MAX_BONUS_CHUNKS = BUILDER
+            .comment("Open Parties and Claims integration: maximum bonus claim chunks a player can ever earn.",
+                     "Default: 200 — requires ~278 hours of social play to reach at default point cost.")
+            .defineInRange("opacMaxBonusChunks", 200, 0, 10000);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
+
+    // ── Derived rate helpers (used by game logic instead of raw config values) ─
+
+    /** Social meter gain per second when near at least one fresh player. */
+    public static float meterGainPerSecond() {
+        return 100.0f / (MINUTES_TO_FULL_METER.get() * 60f);
+    }
+
+    /** Social meter drain per second when completely alone. */
+    public static float meterDrainPerSecond() {
+        return 100.0f / (MINUTES_TO_EMPTY_METER.get() * 60f);
+    }
+
+    /** Familiarity gained per second spent near a specific player. */
+    public static float familiarityGainPerSecond() {
+        return 1.0f / (HOURS_TO_MAX_FAMILIARITY.get() * 3600f);
+    }
+
+    /** Familiarity lost per second spent apart from a player. */
+    public static float familiarityDecayPerSecond() {
+        return 1.0f / (HOURS_TO_LOSE_FAMILIARITY.get() * 3600f);
+    }
+
+    /**
+     * Validates that thresholds are ordered correctly (isolated < lonely < thriving).
+     * Logs a warning if not — the game will still run but tier detection will be wrong.
+     */
+    public static void validateThresholds() {
+        int thriving  = THRESHOLD_THRIVING.get();
+        int lonely    = THRESHOLD_LONELY.get();
+        int isolated  = THRESHOLD_ISOLATED.get();
+
+        if (!(isolated < lonely && lonely < thriving)) {
+            SocialIsolation.LOGGER.warn(
+                    "[SocialIsolation] Threshold ordering is invalid! " +
+                    "Expected: thresholdIsolated ({}) < thresholdLonely ({}) < thresholdThriving ({}). " +
+                    "Tier detection will behave incorrectly until this is fixed.",
+                    isolated, lonely, thriving
+            );
+        }
+    }
 }

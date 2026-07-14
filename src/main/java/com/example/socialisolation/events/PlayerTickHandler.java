@@ -1,11 +1,13 @@
 package com.example.socialisolation.events;
 
+import com.example.socialisolation.compat.OpenPACCompat;
 import com.example.socialisolation.config.SocialConfig;
 import com.example.socialisolation.data.PlayerSocialData;
 import com.example.socialisolation.data.SocialSavedData;
 import com.example.socialisolation.effects.EffectApplicator;
 import com.example.socialisolation.network.SocialMeterPayload;
 import com.example.socialisolation.util.ProximityUtil;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.entity.monster.Slime;
@@ -32,9 +34,7 @@ public class PlayerTickHandler {
     private static final int EFFECT_INTERVAL     = 200;   // 10 seconds
     private static final int DECAY_INTERVAL      = 1200;  // 1 minute
 
-    /** Hysteresis buffer — a player must drop this far below a threshold before the tier changes down.
-     * At drain rate of 0.0556/s, 5.0 points ≈ 90 seconds of solo time before losing a tier.
-     * Enough to open chests, craft, or take a short break without flickering. */
+    /** Hysteresis buffer — a player must drop this far below a threshold before the tier changes down. */
     private static final float TIER_HYSTERESIS = 5.0f;
 
     @SubscribeEvent
@@ -53,44 +53,44 @@ public class PlayerTickHandler {
             if ((tick + i) % PROXIMITY_INTERVAL == 0) {
                 updateMeter(player, savedData);
 
-                // Send updated meter to this player's client for HUD rendering
                 PlayerSocialData data = savedData.getOrCreate(player.getUUID());
-                PacketDistributor.sendToPlayer(player, new SocialMeterPayload(data.getSocialMeter()));
+                PacketDistributor.sendToPlayer(player, new SocialMeterPayload(data.getSocialMeter(), data.getTotalPointsRegained()));
             }
 
             // ── Effect application ─────────────────────────────────────────
             if ((tick + i) % EFFECT_INTERVAL == 0) {
                 PlayerSocialData data = savedData.getOrCreate(player.getUUID());
                 EffectApplicator.SocialTier tier = resolveTierWithHysteresis(data);
-                if (tier.ordinal() != data.getLastAppliedTierOrdinal()) {
-                    EffectApplicator.applyEffects(player, tier);
-                    data.setLastAppliedTierOrdinal(tier.ordinal());
-                    savedData.setDirty();
-                }
+                int newOrdinal = tier.ordinal();
+                int oldOrdinal = data.getLastAppliedTierOrdinal();
 
-                // Phantom spawn condition: when isolated, act as if player hasn't slept for 5+ days
-                // (vanilla threshold is 72000 ticks / 3 days; we set it much higher so the
-                // random spawn chance is significantly increased, making phantoms actually appear)
-                if (tier == EffectApplicator.SocialTier.ISOLATED
-                        && SocialConfig.PHANTOM_SPAWN_WHEN_ISOLATED.get()) {
-                    player.getStats().setValue(
-                            player,
-                            Stats.CUSTOM.get(Stats.TIME_SINCE_REST),
-                            120000 // well above 72000 threshold — higher value = better phantom spawn chance
-                    );
+                if (newOrdinal != oldOrdinal) {
+                    EffectApplicator.applyEffects(player, tier);
+                    data.setLastAppliedTierOrdinal(newOrdinal);
+                    savedData.setDirty();
+
+                    notifyTierChange(player, tier);
+                    OpenPACCompat.updateBonusChunks(server, player.getUUID(), data.getTotalPointsRegained());
+
+                    // Set phantom sleep time only on transition into ISOLATED, not every tick
+                    if (tier == EffectApplicator.SocialTier.ISOLATED
+                            && SocialConfig.PHANTOM_SPAWN_WHEN_ISOLATED.get()) {
+                        player.getStats().setValue(
+                                player,
+                                Stats.CUSTOM.get(Stats.TIME_SINCE_REST),
+                                120000
+                        );
+                    }
                 }
             }
         }
 
         // ── Familiarity decay + dirty mark (once per minute, not per player) ──
         if (tick % DECAY_INTERVAL == 0) {
-            double decayRate = SocialConfig.FAMILIARITY_DECAY_RATE.get();
-            java.util.Set<java.util.UUID> onlineUuids = new java.util.HashSet<>();
-            for (ServerPlayer p : players) onlineUuids.add(p.getUUID());
-
+            double decayRate = SocialConfig.familiarityDecayPerSecond();
             for (ServerPlayer player : players) {
                 PlayerSocialData data = savedData.getOrCreate(player.getUUID());
-                data.decayFamiliarityToward(onlineUuids, decayRate);
+                data.decayFamiliarity(decayRate);
             }
             savedData.setDirty();
         }
@@ -107,25 +107,21 @@ public class PlayerTickHandler {
         int totalSources = nearbyPlayers.size() + nearbyWillsons.size();
 
         if (totalSources == 0) {
-            // Alone — drain meter (time-accurate)
-            float drainPerSecond = SocialConfig.METER_DRAIN_RATE.get().floatValue();
+            float drainPerSecond = SocialConfig.meterDrainPerSecond();
             data.adjustMeterRate(-drainPerSecond);
         } else {
-            float baseGainPerSecond = SocialConfig.METER_GAIN_RATE.get().floatValue();
+            float baseGainPerSecond = SocialConfig.meterGainPerSecond();
 
-            // Familiarity applies to real players and Willson slimes alike
             float weightedSum = 0f;
             for (ServerPlayer other : nearbyPlayers) {
                 weightedSum += data.effectiveGainMultiplier(other.getUUID());
-                float familiarityGain = SocialConfig.FAMILIARITY_GAIN_RATE.get().floatValue();
-                data.addFamiliarity(other.getUUID(), familiarityGain);
+                data.addFamiliarity(other.getUUID(), SocialConfig.familiarityGainPerSecond());
                 data.markSeenTogether(other.getUUID());
             }
 
             for (Slime willson : nearbyWillsons) {
                 weightedSum += data.effectiveGainMultiplier(willson.getUUID());
-                float familiarityGain = SocialConfig.FAMILIARITY_GAIN_RATE.get().floatValue();
-                data.addFamiliarity(willson.getUUID(), familiarityGain);
+                data.addFamiliarity(willson.getUUID(), SocialConfig.familiarityGainPerSecond());
                 data.markSeenTogether(willson.getUUID());
             }
 
@@ -137,15 +133,16 @@ public class PlayerTickHandler {
         savedData.setDirty();
     }
 
-    /**
-     * Returns the tier with hysteresis applied.
-     *
-     * Rule: once you're in a tier, you must move at least {@link #TIER_HYSTERESIS}
-     * points PAST the threshold in the direction of the new tier before switching.
-     *
-     * Going down (to a worse tier) is gated by hysteresis.
-     * Going up (to a better tier) is immediate — feels more rewarding.
-     */
+    private static void notifyTierChange(ServerPlayer player, EffectApplicator.SocialTier tier) {
+        String message = switch (tier) {
+            case THRIVING  -> "§a[Social] You feel great being around others!";
+            case NEUTRAL   -> "§7[Social] Your social meter is balanced.";
+            case LONELY    -> "§e[Social] You're starting to feel lonely...";
+            case ISOLATED  -> "§c[Social] You feel completely isolated.";
+        };
+        player.sendSystemMessage(Component.literal(message));
+    }
+
     private static EffectApplicator.SocialTier resolveTierWithHysteresis(PlayerSocialData data) {
         float meter = data.getSocialMeter();
         int lastOrdinal = data.getLastAppliedTierOrdinal();
@@ -159,26 +156,23 @@ public class PlayerTickHandler {
 
         if (rawTier == lastTier) return lastTier;
 
-        float thriving = SocialConfig.THRESHOLD_THRIVING.get().floatValue();
-        float lonely   = SocialConfig.THRESHOLD_LONELY.get().floatValue();
-        float isolated = SocialConfig.THRESHOLD_ISOLATED.get().floatValue();
+        float thriving = SocialConfig.THRESHOLD_THRIVING.get();
+        float lonely   = SocialConfig.THRESHOLD_LONELY.get();
+        float isolated = SocialConfig.THRESHOLD_ISOLATED.get();
 
-        // Going UP to a better tier — immediate (rewarding feel)
         if (isBetter(rawTier, lastTier)) {
             return rawTier;
         }
 
-        // Going DOWN to a worse tier — require hysteresis buffer
         return switch (lastTier) {
             case THRIVING  -> meter < thriving - TIER_HYSTERESIS ? rawTier : lastTier;
             case NEUTRAL   -> meter < lonely   - TIER_HYSTERESIS ? rawTier : lastTier;
             case LONELY    -> meter < isolated - TIER_HYSTERESIS ? rawTier : lastTier;
-            case ISOLATED  -> rawTier; // can't go lower
+            case ISOLATED  -> rawTier;
         };
     }
 
     private static boolean isBetter(EffectApplicator.SocialTier a, EffectApplicator.SocialTier b) {
-        return a.ordinal() < b.ordinal(); // THRIVING(0) < NEUTRAL(1) < LONELY(2) < ISOLATED(3)
+        return a.ordinal() < b.ordinal();
     }
-
 }

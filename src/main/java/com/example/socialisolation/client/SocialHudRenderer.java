@@ -10,33 +10,28 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Player;
 
 /**
- * Draws a polished Social Meter bar in the player HUD.
+ * Draws the Social Meter bar and (when OPAC config is present) a land claim
+ * progress bar below it showing XP-to-next-chunk style progress.
  *
- * Position and scale are controlled by ClientConfig (editable via drag-and-drop in chat).
- * Default position is above the hunger bar on the right side.
- *
- * NOTE: Tier thresholds are hardcoded here to match server defaults (60/40/15).
- * The server config may differ, but the visual tiers should align closely enough
- * since most servers will use defaults. The server sends the raw meter value only.
+ * Position and scale are controlled by ClientConfig (drag in chat to reposition).
  */
 public class SocialHudRenderer implements LayeredDraw.Layer {
 
     static final int BAR_WIDTH  = 90;
     static final int BAR_HEIGHT = 8;
+    private static final int CLAIM_BAR_HEIGHT = 5;
+    private static final int CLAIM_BAR_GAP    = 3; // pixels between social bar and claim bar
 
-    // Tier thresholds (must match SocialConfig defaults)
-    private static final float THRESHOLD_THRIVING = 60.0f;
-    private static final float THRESHOLD_LONELY   = 40.0f;
-    private static final float THRESHOLD_ISOLATED = 15.0f;
-
-    private static final int C_THRIVING = 0xFF4CAF50; // green
-    private static final int C_NEUTRAL  = 0xFFFFC107; // amber
-    private static final int C_LONELY   = 0xFFFF9800; // orange
-    private static final int C_ISOLATED = 0xFFF44336; // red
-    private static final int C_BG       = 0xCC1A1A1A; // dark translucent bg
-    private static final int C_BORDER   = 0xFF444444; // subtle border
-    private static final int C_TEXT     = 0xFFFFFFFF; // white text
-    private static final int C_SHADOW   = 0x66000000; // shadow
+    private static final int C_THRIVING  = 0xFF4CAF50;
+    private static final int C_NEUTRAL   = 0xFFFFC107;
+    private static final int C_LONELY    = 0xFFFF9800;
+    private static final int C_ISOLATED  = 0xFFF44336;
+    private static final int C_BG        = 0xCC1A1A1A;
+    private static final int C_BORDER    = 0xFF444444;
+    private static final int C_TEXT      = 0xFFFFFFFF;
+    private static final int C_SHADOW    = 0x66000000;
+    private static final int C_CLAIM     = 0xFF7B68EE; // medium slate blue for land bar
+    private static final int C_CLAIM_MAX = 0xFFFFD700; // gold when at cap
 
     private float lastMeter = 50f;
 
@@ -65,7 +60,6 @@ public class SocialHudRenderer implements LayeredDraw.Layer {
         String tierName = getTierName(meter);
         String pctText = Math.round(meter) + "%";
 
-        // If dragging in chat, draw a highlight border around the bar to show it's editable
         if (SocialHudEditor.isDragging()) {
             graphics.fill(barLeft - 2, barTop - 2, barLeft + scaledW + 2, barTop + scaledH + 2, 0x88FFFFFF);
         }
@@ -88,24 +82,78 @@ public class SocialHudRenderer implements LayeredDraw.Layer {
             graphics.fill(fillLeft, fillTop, fillLeft + fillWidth, fillTop + 1, lighten(barColour, 40));
         }
 
-        // Label
+        // Tier label
         if (scale >= 0.6) {
             int labelX = barLeft - mc.font.width(tierName) - 4;
             int labelY = barTop + (scaledH - mc.font.lineHeight) / 2;
             graphics.drawString(mc.font, tierName, labelX, labelY, barColour, true);
         }
 
-        // Percentage
+        // Percentage text
         int textX = barLeft + (scaledW - mc.font.width(pctText)) / 2;
         int textY = barTop + (scaledH - mc.font.lineHeight) / 2;
         graphics.drawString(mc.font, pctText, textX + 1, textY + 1, C_SHADOW, false);
         graphics.drawString(mc.font, pctText, textX, textY, C_TEXT, false);
+
+        // ── Land claim progress bar ───────────────────────────────────────────
+        int pointsPerChunk = ClientSocialData.getOpacPointsPerChunk();
+        if (pointsPerChunk > 0) {
+            renderClaimBar(graphics, mc, barLeft, barTop + scaledH + CLAIM_BAR_GAP, scaledW, scale);
+        }
     }
 
-    /**
-     * Computes the bar position based on config offsets relative to the default position.
-     * Returns [barLeft, barTop].
-     */
+    private static void renderClaimBar(GuiGraphics graphics, Minecraft mc, int left, int top, int width, double scale) {
+        int chunks = ClientSocialData.chunksEarned();
+        int maxChunks = ClientSocialData.getOpacMaxChunks();
+        float totalPoints = ClientSocialData.getTotalPointsRegained();
+        float spent = ClientSocialData.pointsSpentOnChunks(chunks);
+        float nextCost = ClientSocialData.pointsForNextChunk(chunks);
+
+        boolean atCap = chunks >= maxChunks;
+        float progress = atCap ? 1f : Math.min((totalPoints - spent) / nextCost, 1f);
+
+        int barH = (int) Math.max(3, CLAIM_BAR_HEIGHT * scale);
+        int fillW = Math.round(progress * (width - 2));
+        int colour = atCap ? C_CLAIM_MAX : C_CLAIM;
+
+        // Background + border
+        graphics.fill(left, top, left + width, top + barH, C_BG);
+        graphics.fill(left - 1, top - 1, left + width + 1, top, C_BORDER);
+        graphics.fill(left - 1, top + barH, left + width + 1, top + barH + 1, C_BORDER);
+        graphics.fill(left - 1, top, left, top + barH, C_BORDER);
+        graphics.fill(left + width, top, left + width + 1, top + barH, C_BORDER);
+
+        // Fill
+        if (fillW > 0) {
+            graphics.fill(left + 1, top + 1, left + 1 + fillW, top + barH - 1, colour);
+            graphics.fill(left + 1, top + 1, left + 1 + fillW, top + 2, lighten(colour, 40));
+        }
+
+        // Label: "12 chunks" left of bar, "next: 15000pts" right of bar (if not at cap)
+        if (scale >= 0.6) {
+            String leftLabel = chunks + " chunk" + (chunks == 1 ? "" : "s");
+            graphics.drawString(mc.font, leftLabel,
+                    left - mc.font.width(leftLabel) - 4,
+                    top + (barH - mc.font.lineHeight) / 2,
+                    colour, true);
+
+            if (!atCap) {
+                int remaining = (int) Math.ceil(nextCost - (totalPoints - spent));
+                String rightLabel = remaining + " pts";
+                graphics.drawString(mc.font, rightLabel,
+                        left + width + 4,
+                        top + (barH - mc.font.lineHeight) / 2,
+                        C_NEUTRAL, true);
+            } else {
+                String capLabel = "MAX";
+                graphics.drawString(mc.font, capLabel,
+                        left + width + 4,
+                        top + (barH - mc.font.lineHeight) / 2,
+                        C_CLAIM_MAX, true);
+            }
+        }
+    }
+
     static int[] computeBarPosition(Minecraft mc) {
         int screenWidth  = mc.getWindow().getGuiScaledWidth();
         int screenHeight = mc.getWindow().getGuiScaledHeight();
@@ -113,7 +161,6 @@ public class SocialHudRenderer implements LayeredDraw.Layer {
         int offsetX = ClientConfig.HUD_OFFSET_X.get();
         int offsetY = ClientConfig.HUD_OFFSET_Y.get();
 
-        // Default position: right side, above hunger bar
         int defaultLeft = screenWidth / 2 + 91 - BAR_WIDTH;
         int defaultTop  = screenHeight - 49 - 12 - BAR_HEIGHT;
 
@@ -121,16 +168,16 @@ public class SocialHudRenderer implements LayeredDraw.Layer {
     }
 
     private static String getTierName(float meter) {
-        if (meter >= THRESHOLD_THRIVING) return "Thriving";
-        if (meter >= THRESHOLD_LONELY)   return "Neutral";
-        if (meter >= THRESHOLD_ISOLATED) return "Lonely";
+        if (meter >= ClientSocialData.getThresholdThriving()) return "Thriving";
+        if (meter >= ClientSocialData.getThresholdLonely())   return "Neutral";
+        if (meter >= ClientSocialData.getThresholdIsolated()) return "Lonely";
         return "Isolated";
     }
 
     private static int interpolateColour(float meter) {
-        float t = THRESHOLD_THRIVING;
-        float l = THRESHOLD_LONELY;
-        float i = THRESHOLD_ISOLATED;
+        float t = ClientSocialData.getThresholdThriving();
+        float l = ClientSocialData.getThresholdLonely();
+        float i = ClientSocialData.getThresholdIsolated();
 
         if (meter >= t) return C_THRIVING;
         if (meter >= l) return lerpColour(meter, l, t, C_LONELY, C_NEUTRAL);

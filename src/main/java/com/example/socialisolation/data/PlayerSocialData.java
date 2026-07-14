@@ -76,15 +76,12 @@ public class PlayerSocialData {
     }
 
     /**
-     * Decay familiarity toward online players who are not nearby.
-     * Resets last-seen timestamp after applying decay so subsequent ticks
-     * only count the delta, preventing compounding.
+     * Decay familiarity for all tracked entities based on time since last seen together.
+     * Applies to both online and offline players/slimes so familiarity always drains over time.
      */
-    public void decayFamiliarityToward(java.util.Set<UUID> onlineUuids, double decayPerSecond) {
+    public void decayFamiliarity(double decayPerSecond) {
         long nowMs = System.currentTimeMillis();
         for (UUID uuid : new java.util.ArrayList<>(familiarityMap.keySet())) {
-            if (!onlineUuids.contains(uuid)) continue;
-
             long lastSeen = lastSeenTogetherMs.getOrDefault(uuid, nowMs);
             double secondsApart = (nowMs - lastSeen) / 1000.0;
             if (secondsApart <= 0) continue;
@@ -97,7 +94,6 @@ public class PlayerSocialData {
                 lastSeenTogetherMs.remove(uuid);
             } else {
                 familiarityMap.put(uuid, next);
-                // Reset timestamp so next decay only counts new apart-time
                 lastSeenTogetherMs.put(uuid, nowMs);
             }
         }

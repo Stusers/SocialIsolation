@@ -1,9 +1,12 @@
 package com.example.socialisolation.events;
 
 import com.example.socialisolation.SocialIsolation;
+import com.example.socialisolation.compat.OpenPACCompat;
 import com.example.socialisolation.data.PlayerSocialData;
 import com.example.socialisolation.data.SocialSavedData;
 import com.example.socialisolation.effects.EffectApplicator;
+import com.example.socialisolation.config.SocialConfig;
+import com.example.socialisolation.network.SocialConfigSyncPayload;
 import com.example.socialisolation.network.SocialMeterPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -35,8 +38,15 @@ public class PlayerJoinLeaveHandler {
         EffectApplicator.SocialTier tier = EffectApplicator.getTier(data.getSocialMeter());
         EffectApplicator.applyEffects(player, tier);
 
-        // Send initial meter value so the HUD is populated immediately on login
-        PacketDistributor.sendToPlayer(player, new SocialMeterPayload(data.getSocialMeter()));
+        PacketDistributor.sendToPlayer(player, new SocialMeterPayload(data.getSocialMeter(), data.getTotalPointsRegained()));
+        PacketDistributor.sendToPlayer(player, new SocialConfigSyncPayload(
+                SocialConfig.OPAC_POINTS_PER_BONUS_CHUNK.get(),
+                SocialConfig.OPAC_MAX_BONUS_CHUNKS.get(),
+                SocialConfig.THRESHOLD_THRIVING.get(),
+                SocialConfig.THRESHOLD_LONELY.get(),
+                SocialConfig.THRESHOLD_ISOLATED.get()
+        ));
+        OpenPACCompat.updateBonusChunks(player.server, player.getUUID(), data.getTotalPointsRegained());
 
         savedData.setDirty();
 
