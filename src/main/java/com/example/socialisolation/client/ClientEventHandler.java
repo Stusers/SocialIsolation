@@ -5,7 +5,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
 
 /**
@@ -14,11 +13,6 @@ import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
  */
 @EventBusSubscriber(modid = SocialIsolation.MODID, value = Dist.CLIENT)
 public class ClientEventHandler {
-
-    @SubscribeEvent
-    public static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
-        SocialHudCommand.register(event.getDispatcher());
-    }
 
     @SubscribeEvent
     public static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
