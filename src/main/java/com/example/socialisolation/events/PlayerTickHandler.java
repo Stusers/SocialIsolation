@@ -71,16 +71,18 @@ public class PlayerTickHandler {
 
                     notifyTierChange(player, tier);
                     OpenPACCompat.updateBonusChunks(server, player.getUUID(), data.getTotalPointsRegained());
+                }
 
-                    // Set phantom sleep time only on transition into ISOLATED, not every tick
-                    if (tier == EffectApplicator.SocialTier.ISOLATED
-                            && SocialConfig.PHANTOM_SPAWN_WHEN_ISOLATED.get()) {
-                        player.getStats().setValue(
-                                player,
-                                Stats.CUSTOM.get(Stats.TIME_SINCE_REST),
-                                120000
-                        );
-                    }
+                // Keep TIME_SINCE_REST elevated every effect interval so vanilla phantom
+                // spawning stays active for as long as the player remains ISOLATED.
+                // Must be continuous — vanilla ticks this stat down and resets it on sleep.
+                if (tier == EffectApplicator.SocialTier.ISOLATED
+                        && SocialConfig.PHANTOM_SPAWN_WHEN_ISOLATED.get()) {
+                    player.getStats().setValue(
+                            player,
+                            Stats.CUSTOM.get(Stats.TIME_SINCE_REST),
+                            120000
+                    );
                 }
             }
         }

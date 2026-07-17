@@ -1,70 +1,93 @@
 # Social Isolation
 
-**A server-side Minecraft SMP mod that subtly incentivises players to spend time together.**
+A server-side NeoForge mod that encourages players to meet up and discourges far away bases for SMP health without relying on small borders.
 
-## Overview
+---
 
-Social Isolation adds a **Social Meter** mechanic to multiplayer servers. Players who spend time near others gain meter and receive benefits. Players who are alone lose meter and face mild penalties -- with a familiarity system that prevents AFK exploitation.
+## How it works
 
-## Features
+Every player has a **Social Meter** (0–100). Being near others fills it. Being alone drains it. Where your meter sits determines what tier you're in:
 
-### Social Meter
-- **Thriving (>=60)** -- +15% block break speed, +15% XP gain
-- **Neutral (40-60)** -- No effects
-- **Lonely (15-40)** -- Mild mining slowdown (-15% block break speed)
-- **Isolated (<15)** -- Moderate mining slowdown (-30% block break speed) + phantom insomnia (as if 3 days without sleep)
+| Tier | Range | Effect |
+|------|-------|--------|
+| Thriving | ≥ 60 | +15% mining speed, +15% XP gain |
+| Neutral | 40–60 | Nothing |
+| Lonely | 15–40 | -15% mining speed |
+| Isolated | < 15 | -30% mining speed + phantoms think you haven't slept in days |
 
-### Familiarity System
-- Real players and Willson slimes build familiarity over time (~5 hours to max)
-- At max familiarity, that source contributes **zero** meter gain
-- Familiarity decays slowly when apart (~24 hours to fully decay)
-- Prevents AFK players from exploiting the proximity mechanic
+The meter fills faster the more people are around you, with a small bonus for groups.
 
-### Willson -- The Companion Slime
-- Name any slime **Willson** (case-insensitive) with a name tag
-- Willson counts as a social source and participates in the familiarity system just like a real player
-- No commands or registration required -- purely name-based detection
+---
 
-## Configuration
+## Familiarity
 
-All values are tunable server-side via `socialisolation-server.toml`:
+Spending time near the same person builds **familiarity**, which gradually reduces how much meter gain they give you. Max familiarity takes ~5 hours to reach and ~24 hours apart to decay. This keeps the social dynamic fresh — you can't just park next to your friend AFK and call it a day.
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `proximityRadius` | 24 | Block radius for nearby detection |
-| `meterGainRate` | 0.1667 | Social meter gain per second when near others |
-| `meterDrainRate` | 0.0556 | Social meter drain per second when alone |
-| `thresholdThriving` | 60.0 | Threshold for Thriving tier |
-| `thresholdLonely` | 40.0 | Threshold for Lonely tier |
-| `thresholdIsolated` | 15.0 | Threshold for Isolated tier |
-| `phantomSpawnWhenIsolated` | true | Enable phantom spawning when isolated |
-| `enableBenefits` | true | Enable positive effects |
-| `enablePenalties` | true | Enable negative effects |
+---
+
+## Willson
+
+Name any slime **Willson** with a name tag and it becomes your social companion. Counts as a nearby player for meter purposes and builds familiarity just like a real person. No setup required.
+
+---
+
+## Open Parties and Claims
+
+If OPAC is installed, players earn **bonus claim chunks** the more they socialise. The cost scales up with each chunk so early chunks come quickly and later ones take real commitment. Progress shows as a second bar under the social meter HUD.
+
+Use `/social chunks` to see your current count and progress toward the next one.
+
+---
 
 ## Commands
 
-| Command | Permission | Description |
-|---------|------------|-------------|
-| `/social meter` | Anyone | View your current social meter |
-| `/social config` | OP Level 2 | View or reload server config |
+| Command | Who | What |
+|---------|-----|-------|
+| `/social status [player]` | Anyone (OP for others) | Meter, tier, and lifetime points |
+| `/social set [player] <value>` | OP | Override a player's meter |
+| `/social chunks [player]` | Anyone (OP for others) | Bonus chunk progress |
+| `/social chunks sync [player]` | OP | Force OPAC sync (all online if no player given) |
+| `/social config list` | OP | Show all config values |
+| `/social config get <key>` | OP | Get a single value |
+| `/social config set <key> <value>` | OP | Change a value live |
+
+---
+
+## Configuration
+
+Tunable server-side in `socialisolation-server.toml`. Key settings:
+
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `proximityRadius` | 24 | Blocks to count as "nearby" |
+| `minutesToFullMeter` | 10 | Minutes near a fresh player to go 0→100 |
+| `minutesToEmptyMeter` | 30 | Minutes alone to go 100→0 |
+| `hoursToMaxFamiliarity` | 5 | Hours together before familiarity maxes out |
+| `hoursToLoseFamiliarity` | 24 | Hours apart to fully reset familiarity |
+| `thresholdThriving` | 60 | Meter value to enter Thriving |
+| `thresholdLonely` | 40 | Meter value to enter Lonely |
+| `thresholdIsolated` | 15 | Meter value to enter Isolated |
+| `enableBenefits` | true | Toggle positive effects |
+| `enablePenalties` | true | Toggle negative effects |
+| `enableFamiliarity` | true | Toggle the familiarity system |
+| `phantomSpawnWhenIsolated` | true | Phantoms for isolated players |
+| `opacPointsPerBonusChunk` | 5000 | Base points per bonus chunk (scales up) |
+| `opacMaxBonusChunks` | 200 | Chunk cap |
+
+The HUD can be repositioned by dragging it while chat is open, and scaled by scrolling over it.
+
+---
 
 ## Installation
 
-1. Install NeoForge for Minecraft 1.21.1
-2. Place the mod JAR in your server's `mods/` folder
-3. Launch the server -- config generates automatically
+1. Install NeoForge 1.21.1
+2. Drop the JAR in your `mods/` folder
+3. Start the server — config generates automatically
 
-## Compatibility
+Clients don't need the mod. OPAC is optional.
 
-- **Server-side only** -- clients do not need the mod installed
-- Works with any NeoForge 21.1.229+ server
-
-## Version History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0.0 | 2026-05-15 | Initial release -- proximity meter, familiarity system, Willson companion, phantom insomnia, drag-and-drop HUD editor |
+---
 
 ## License
 
-All Rights Reserved -- Stusers
+MIT — Stusers

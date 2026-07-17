@@ -98,11 +98,11 @@ public class SocialHudRenderer implements LayeredDraw.Layer {
         // ── Land claim progress bar ───────────────────────────────────────────
         int pointsPerChunk = ClientSocialData.getOpacPointsPerChunk();
         if (pointsPerChunk > 0) {
-            renderClaimBar(graphics, mc, barLeft, barTop + scaledH + CLAIM_BAR_GAP, scaledW, scale);
+            renderClaimBar(graphics, barLeft, barTop + scaledH + CLAIM_BAR_GAP, scaledW, scale);
         }
     }
 
-    private static void renderClaimBar(GuiGraphics graphics, Minecraft mc, int left, int top, int width, double scale) {
+    private static void renderClaimBar(GuiGraphics graphics, int left, int top, int width, double scale) {
         int chunks = ClientSocialData.chunksEarned();
         int maxChunks = ClientSocialData.getOpacMaxChunks();
         float totalPoints = ClientSocialData.getTotalPointsRegained();
@@ -129,29 +129,6 @@ public class SocialHudRenderer implements LayeredDraw.Layer {
             graphics.fill(left + 1, top + 1, left + 1 + fillW, top + 2, lighten(colour, 40));
         }
 
-        // Label: "12 chunks" left of bar, "next: 15000pts" right of bar (if not at cap)
-        if (scale >= 0.6) {
-            String leftLabel = chunks + " chunk" + (chunks == 1 ? "" : "s");
-            graphics.drawString(mc.font, leftLabel,
-                    left - mc.font.width(leftLabel) - 4,
-                    top + (barH - mc.font.lineHeight) / 2,
-                    colour, true);
-
-            if (!atCap) {
-                int remaining = (int) Math.ceil(nextCost - (totalPoints - spent));
-                String rightLabel = remaining + " pts";
-                graphics.drawString(mc.font, rightLabel,
-                        left + width + 4,
-                        top + (barH - mc.font.lineHeight) / 2,
-                        C_NEUTRAL, true);
-            } else {
-                String capLabel = "MAX";
-                graphics.drawString(mc.font, capLabel,
-                        left + width + 4,
-                        top + (barH - mc.font.lineHeight) / 2,
-                        C_CLAIM_MAX, true);
-            }
-        }
     }
 
     static int[] computeBarPosition(Minecraft mc) {
