@@ -45,16 +45,27 @@ public class PlayerTickHandler {
 
         long tick = server.getTickCount();
         SocialSavedData savedData = SocialSavedData.get(server);
+        int opacPointsPerChunk = SocialConfig.OPAC_POINTS_PER_BONUS_CHUNK.get();
+        int opacMaxChunks = SocialConfig.OPAC_MAX_BONUS_CHUNKS.get();
 
         for (int i = 0; i < players.size(); i++) {
             ServerPlayer player = players.get(i);
 
             // ── Proximity + meter (staggered by player index) ──────────────
             if ((tick + i) % PROXIMITY_INTERVAL == 0) {
-                updateMeter(player, savedData);
-
-                PlayerSocialData data = savedData.getOrCreate(player.getUUID());
+                PlayerSocialData data = updateMeter(player, savedData);
                 PacketDistributor.sendToPlayer(player, new SocialMeterPayload(data.getSocialMeter(), data.getTotalPointsRegained()));
+
+                // Sync OPAC bonus chunks whenever earned count changes (not just on tier change)
+                if (opacPointsPerChunk > 0) {
+                    int earned = com.example.socialisolation.util.ChunkRewardMath.chunksEarned(
+                            data.getTotalPointsRegained(), opacPointsPerChunk, opacMaxChunks);
+                    if (earned != data.getLastSyncedOpacChunks()) {
+                        OpenPACCompat.setBonusChunks(server, player.getUUID(), earned);
+                        data.setLastSyncedOpacChunks(earned);
+                        savedData.setDirty();
+                    }
+                }
             }
 
             // ── Effect application ─────────────────────────────────────────
@@ -70,7 +81,6 @@ public class PlayerTickHandler {
                     savedData.setDirty();
 
                     notifyTierChange(player, tier);
-                    OpenPACCompat.updateBonusChunks(server, player.getUUID(), data.getTotalPointsRegained());
                 }
 
                 // Keep TIME_SINCE_REST elevated every effect interval so vanilla phantom
@@ -100,7 +110,7 @@ public class PlayerTickHandler {
 
     // ─────────────────────────────────────────────────────────────────────────
 
-    private void updateMeter(ServerPlayer player, SocialSavedData savedData) {
+    private PlayerSocialData updateMeter(ServerPlayer player, SocialSavedData savedData) {
         PlayerSocialData data = savedData.getOrCreate(player.getUUID());
 
         int radius = SocialConfig.PROXIMITY_RADIUS.get();
@@ -133,6 +143,7 @@ public class PlayerTickHandler {
         }
 
         savedData.setDirty();
+        return data;
     }
 
     private static void notifyTierChange(ServerPlayer player, EffectApplicator.SocialTier tier) {

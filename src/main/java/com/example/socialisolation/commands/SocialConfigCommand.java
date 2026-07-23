@@ -110,9 +110,42 @@ public class SocialConfigCommand {
                 case "minutesToEmptyMeter"    -> SocialConfig.MINUTES_TO_EMPTY_METER.set(Integer.parseInt(rawValue.trim()));
                 case "hoursToMaxFamiliarity"  -> SocialConfig.HOURS_TO_MAX_FAMILIARITY.set(Integer.parseInt(rawValue.trim()));
                 case "hoursToLoseFamiliarity" -> SocialConfig.HOURS_TO_LOSE_FAMILIARITY.set(Integer.parseInt(rawValue.trim()));
-                case "thresholdThriving"      -> SocialConfig.THRESHOLD_THRIVING.set(Integer.parseInt(rawValue.trim()));
-                case "thresholdLonely"        -> SocialConfig.THRESHOLD_LONELY.set(Integer.parseInt(rawValue.trim()));
-                case "thresholdIsolated"      -> SocialConfig.THRESHOLD_ISOLATED.set(Integer.parseInt(rawValue.trim()));
+                case "thresholdThriving"      -> {
+                    int v = Integer.parseInt(rawValue.trim());
+                    int lonely   = SocialConfig.THRESHOLD_LONELY.get();
+                    int isolated = SocialConfig.THRESHOLD_ISOLATED.get();
+                    if (!(isolated < lonely && lonely < v)) {
+                        src.sendFailure(Component.literal(
+                                "[Social] Invalid value: thresholdThriving must be greater than thresholdLonely (" + lonely + ") " +
+                                "and thresholdIsolated (" + isolated + ")."));
+                        return 0;
+                    }
+                    SocialConfig.THRESHOLD_THRIVING.set(v);
+                }
+                case "thresholdLonely"        -> {
+                    int v = Integer.parseInt(rawValue.trim());
+                    int thriving = SocialConfig.THRESHOLD_THRIVING.get();
+                    int isolated = SocialConfig.THRESHOLD_ISOLATED.get();
+                    if (!(isolated < v && v < thriving)) {
+                        src.sendFailure(Component.literal(
+                                "[Social] Invalid value: thresholdLonely must be between thresholdIsolated (" + isolated + ") " +
+                                "and thresholdThriving (" + thriving + ")."));
+                        return 0;
+                    }
+                    SocialConfig.THRESHOLD_LONELY.set(v);
+                }
+                case "thresholdIsolated"      -> {
+                    int v = Integer.parseInt(rawValue.trim());
+                    int thriving = SocialConfig.THRESHOLD_THRIVING.get();
+                    int lonely   = SocialConfig.THRESHOLD_LONELY.get();
+                    if (!(v < lonely && lonely < thriving)) {
+                        src.sendFailure(Component.literal(
+                                "[Social] Invalid value: thresholdIsolated must be less than thresholdLonely (" + lonely + ") " +
+                                "and thresholdThriving (" + thriving + ")."));
+                        return 0;
+                    }
+                    SocialConfig.THRESHOLD_ISOLATED.set(v);
+                }
                 case "enableBenefits"         -> SocialConfig.ENABLE_BENEFITS.set(Boolean.parseBoolean(rawValue.trim()));
                 case "enablePenalties"        -> SocialConfig.ENABLE_PENALTIES.set(Boolean.parseBoolean(rawValue.trim()));
                 case "enableFamiliarity"      -> SocialConfig.ENABLE_FAMILIARITY.set(Boolean.parseBoolean(rawValue.trim()));

@@ -26,6 +26,8 @@ public class PlayerSocialData {
     private int lastAppliedTierOrdinal = -1;
     /** Cumulative total of all social meter points ever gained (not lost). Useful for progression/land-claim integrations. */
     private float totalPointsRegained = 0f;
+    /** Last chunk count synced to OPAC — so we only call the API when it actually changes. */
+    private int lastSyncedOpacChunks = -1;
 
     public PlayerSocialData() {
         this.socialMeter = SOCIAL_METER_DEFAULT;
@@ -125,6 +127,9 @@ public class PlayerSocialData {
     public int getLastAppliedTierOrdinal() { return lastAppliedTierOrdinal; }
     public void setLastAppliedTierOrdinal(int ordinal) { this.lastAppliedTierOrdinal = ordinal; }
 
+    public int getLastSyncedOpacChunks() { return lastSyncedOpacChunks; }
+    public void setLastSyncedOpacChunks(int chunks) { this.lastSyncedOpacChunks = chunks; }
+
     // ── NBT serialisation ────────────────────────────────────────────────────
 
     public CompoundTag save() {
@@ -134,6 +139,7 @@ public class PlayerSocialData {
         tag.putLong("lastMeterUpdateMs", lastMeterUpdateMs);
         tag.putInt("lastAppliedTierOrdinal", lastAppliedTierOrdinal);
         tag.putFloat("totalPointsRegained", totalPointsRegained);
+        tag.putInt("lastSyncedOpacChunks", lastSyncedOpacChunks);
 
         ListTag familiarityList = new ListTag();
         for (Map.Entry<UUID, Float> entry : familiarityMap.entrySet()) {
@@ -152,9 +158,14 @@ public class PlayerSocialData {
         data.socialMeter = tag.getFloat("socialMeter");
         data.lastOnlineMs = tag.getLong("lastOnlineMs");
         data.lastMeterUpdateMs = tag.getLong("lastMeterUpdateMs");
-        data.lastAppliedTierOrdinal = tag.getInt("lastAppliedTierOrdinal");
+        if (tag.contains("lastAppliedTierOrdinal", net.minecraft.nbt.Tag.TAG_ANY_NUMERIC)) {
+            data.lastAppliedTierOrdinal = tag.getInt("lastAppliedTierOrdinal");
+        }
         if (tag.contains("totalPointsRegained", net.minecraft.nbt.Tag.TAG_ANY_NUMERIC)) {
             data.totalPointsRegained = tag.getFloat("totalPointsRegained");
+        }
+        if (tag.contains("lastSyncedOpacChunks", net.minecraft.nbt.Tag.TAG_ANY_NUMERIC)) {
+            data.lastSyncedOpacChunks = tag.getInt("lastSyncedOpacChunks");
         }
 
         ListTag familiarityList = tag.getList("familiarity", Tag.TAG_COMPOUND);

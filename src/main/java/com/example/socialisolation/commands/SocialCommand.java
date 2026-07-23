@@ -165,6 +165,10 @@ public class SocialCommand {
         if (target != null) {
             PlayerSocialData data = saved.getOrCreate(target.getUUID());
             OpenPACCompat.updateBonusChunks(server, target.getUUID(), data.getTotalPointsRegained());
+            // Reset to -1 so the tick handler re-syncs on the next proximity tick.
+            // This handles the case where OPAC silently no-oped (player config not yet loaded).
+            data.setLastSyncedOpacChunks(-1);
+            saved.setDirty();
             source.sendSuccess(() -> Component.literal(
                     "Synced OPAC bonus chunks for " + target.getName().getString()), true);
             return 1;
@@ -175,7 +179,9 @@ public class SocialCommand {
         for (ServerPlayer p : players) {
             PlayerSocialData data = saved.getOrCreate(p.getUUID());
             OpenPACCompat.updateBonusChunks(server, p.getUUID(), data.getTotalPointsRegained());
+            data.setLastSyncedOpacChunks(-1);
         }
+        saved.setDirty();
         int count = players.size();
         source.sendSuccess(() -> Component.literal(
                 "Synced OPAC bonus chunks for " + count + " online player(s)."), true);

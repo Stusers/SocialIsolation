@@ -46,7 +46,11 @@ public class PlayerJoinLeaveHandler {
                 SocialConfig.THRESHOLD_LONELY.get(),
                 SocialConfig.THRESHOLD_ISOLATED.get()
         ));
-        OpenPACCompat.updateBonusChunks(player.server, player.getUUID(), data.getTotalPointsRegained());
+        // Reset so the tick handler does a fresh OPAC sync on the first proximity tick (~1 s later),
+        // by which time OPAC has finished loading the player's config. Only needed when OPAC is present.
+        if (OpenPACCompat.isLoaded()) {
+            data.setLastSyncedOpacChunks(-1);
+        }
 
         savedData.setDirty();
 
