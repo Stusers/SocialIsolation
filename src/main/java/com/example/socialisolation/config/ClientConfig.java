@@ -27,7 +27,7 @@ public class ClientConfig {
     public static final ModConfigSpec.DoubleValue HUD_SCALE = BUILDER
             .comment("Scale of the HUD bar. 1.0 = default size, 0.5 = half size, 2.0 = double.",
                      "Useful for smaller screens or UI packs.")
-            .defineInRange("hudScale", 1.0, 0.25, 3.0);
+            .defineInRange("hudScale", 0.8, 0.25, 3.0);
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 }

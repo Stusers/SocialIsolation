@@ -28,6 +28,8 @@ public class PlayerSocialData {
     private float totalPointsRegained = 0f;
     /** Last chunk count synced to OPAC — so we only call the API when it actually changes. */
     private int lastSyncedOpacChunks = -1;
+    /** Whether this player has already seen the current admin welcome message. */
+    private boolean hasSeenWelcome = false;
 
     public PlayerSocialData() {
         this.socialMeter = SOCIAL_METER_DEFAULT;
@@ -130,6 +132,9 @@ public class PlayerSocialData {
     public int getLastSyncedOpacChunks() { return lastSyncedOpacChunks; }
     public void setLastSyncedOpacChunks(int chunks) { this.lastSyncedOpacChunks = chunks; }
 
+    public boolean hasSeenWelcome() { return hasSeenWelcome; }
+    public void setHasSeenWelcome(boolean seen) { this.hasSeenWelcome = seen; }
+
     // ── NBT serialisation ────────────────────────────────────────────────────
 
     public CompoundTag save() {
@@ -140,6 +145,7 @@ public class PlayerSocialData {
         tag.putInt("lastAppliedTierOrdinal", lastAppliedTierOrdinal);
         tag.putFloat("totalPointsRegained", totalPointsRegained);
         tag.putInt("lastSyncedOpacChunks", lastSyncedOpacChunks);
+        tag.putBoolean("hasSeenWelcome", hasSeenWelcome);
 
         ListTag familiarityList = new ListTag();
         for (Map.Entry<UUID, Float> entry : familiarityMap.entrySet()) {
@@ -166,6 +172,9 @@ public class PlayerSocialData {
         }
         if (tag.contains("lastSyncedOpacChunks", net.minecraft.nbt.Tag.TAG_ANY_NUMERIC)) {
             data.lastSyncedOpacChunks = tag.getInt("lastSyncedOpacChunks");
+        }
+        if (tag.contains("hasSeenWelcome", net.minecraft.nbt.Tag.TAG_BYTE)) {
+            data.hasSeenWelcome = tag.getBoolean("hasSeenWelcome");
         }
 
         ListTag familiarityList = tag.getList("familiarity", Tag.TAG_COMPOUND);

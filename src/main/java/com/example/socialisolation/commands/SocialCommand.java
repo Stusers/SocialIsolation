@@ -8,6 +8,7 @@ import com.example.socialisolation.effects.EffectApplicator;
 import com.example.socialisolation.util.ChunkRewardMath;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
@@ -58,6 +59,32 @@ public class SocialCommand {
                                 .then(Commands.argument("player", EntityArgument.player())
                                         .executes(ctx -> executeChunksSync(ctx.getSource(), EntityArgument.getPlayer(ctx, "player")))
                                 )
+                        )
+                )
+                // /social welcome set <message> — set first-join message (OP only, use \n for line breaks)
+                // /social welcome clear — remove the message
+                // /social welcome reset [player] — let player see it again
+                // /social welcome show — preview current message
+                .then(Commands.literal("welcome")
+                        .requires(src -> src.hasPermission(2))
+                        .then(Commands.literal("set")
+                                .then(Commands.argument("message", StringArgumentType.greedyString())
+                                        .executes(ctx -> executeWelcomeSet(ctx.getSource(),
+                                                StringArgumentType.getString(ctx, "message")))
+                                )
+                        )
+                        .then(Commands.literal("clear")
+                                .executes(ctx -> executeWelcomeClear(ctx.getSource()))
+                        )
+                        .then(Commands.literal("reset")
+                                .executes(ctx -> executeWelcomeReset(ctx.getSource(), null))
+                                .then(Commands.argument("player", EntityArgument.player())
+                                        .executes(ctx -> executeWelcomeReset(ctx.getSource(),
+                                                EntityArgument.getPlayer(ctx, "player")))
+                                )
+                        )
+                        .then(Commands.literal("show")
+                                .executes(ctx -> executeWelcomeShow(ctx.getSource()))
                         )
                 )
                 // /social set <value> / /social set <player> <value> — OP only
@@ -185,6 +212,56 @@ public class SocialCommand {
         int count = players.size();
         source.sendSuccess(() -> Component.literal(
                 "Synced OPAC bonus chunks for " + count + " online player(s)."), true);
+        return 1;
+    }
+
+    private static int executeWelcomeSet(CommandSourceStack source, String message) {
+        SocialSavedData saved = SocialSavedData.get(source.getServer());
+        saved.setWelcomeMessage(message);
+        saved.resetAllWelcomeSeen();
+        source.sendSuccess(() -> Component.literal(
+                "[Social] Welcome message set. All players will see it on their next join.\n" +
+                "Preview: " + message.replace("\\n", "\n")), true);
+        return 1;
+    }
+
+    private static int executeWelcomeClear(CommandSourceStack source) {
+        SocialSavedData saved = SocialSavedData.get(source.getServer());
+        if (!saved.hasWelcomeMessage()) {
+            source.sendFailure(Component.literal("No welcome message is set."));
+            return 0;
+        }
+        saved.setWelcomeMessage(null);
+        source.sendSuccess(() -> Component.literal("[Social] Welcome message cleared."), true);
+        return 1;
+    }
+
+    private static int executeWelcomeReset(CommandSourceStack source, ServerPlayer target) {
+        SocialSavedData saved = SocialSavedData.get(source.getServer());
+        if (!saved.hasWelcomeMessage()) {
+            source.sendFailure(Component.literal("No welcome message is set."));
+            return 0;
+        }
+        if (target != null) {
+            saved.resetWelcomeSeen(target.getUUID());
+            source.sendSuccess(() -> Component.literal(
+                    "[Social] " + target.getName().getString() + " will see the welcome message on next join."), true);
+        } else {
+            saved.resetAllWelcomeSeen();
+            source.sendSuccess(() -> Component.literal(
+                    "[Social] All players will see the welcome message on next join."), true);
+        }
+        return 1;
+    }
+
+    private static int executeWelcomeShow(CommandSourceStack source) {
+        SocialSavedData saved = SocialSavedData.get(source.getServer());
+        if (!saved.hasWelcomeMessage()) {
+            source.sendSuccess(() -> Component.literal("[Social] No welcome message is set."), false);
+            return 1;
+        }
+        String preview = saved.getWelcomeMessage().replace("\\n", "\n");
+        source.sendSuccess(() -> Component.literal("[Social] Current welcome message:\n" + preview), false);
         return 1;
     }
 

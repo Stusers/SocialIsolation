@@ -8,6 +8,7 @@ import com.example.socialisolation.effects.EffectApplicator;
 import com.example.socialisolation.config.SocialConfig;
 import com.example.socialisolation.network.SocialConfigSyncPayload;
 import com.example.socialisolation.network.SocialMeterPayload;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -50,6 +51,13 @@ public class PlayerJoinLeaveHandler {
         // by which time OPAC has finished loading the player's config. Only needed when OPAC is present.
         if (OpenPACCompat.isLoaded()) {
             data.setLastSyncedOpacChunks(-1);
+        }
+
+        if (savedData.hasWelcomeMessage() && !data.hasSeenWelcome()) {
+            // Replace literal \n with real newlines; send as one component so § color codes span lines.
+            String msg = savedData.getWelcomeMessage().replace("\\n", "\n");
+            player.sendSystemMessage(Component.literal(msg));
+            data.setHasSeenWelcome(true);
         }
 
         savedData.setDirty();

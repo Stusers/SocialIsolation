@@ -139,7 +139,7 @@ public class SocialHudRenderer implements LayeredDraw.Layer {
         int offsetY = ClientConfig.HUD_OFFSET_Y.get();
 
         int defaultLeft = screenWidth / 2 + 91 - BAR_WIDTH;
-        int defaultTop  = screenHeight - 49 - 12 - BAR_HEIGHT;
+        int defaultTop  = screenHeight - 49 - 6 - BAR_HEIGHT;
 
         return new int[] { defaultLeft + offsetX, defaultTop + offsetY };
     }

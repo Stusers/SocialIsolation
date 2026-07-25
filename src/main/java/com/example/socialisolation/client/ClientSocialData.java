@@ -10,7 +10,7 @@ public class ClientSocialData {
 
     private static float socialMeter = 50.0f;
     private static float totalPointsRegained = 0f;
-    private static int opacPointsPerChunk = 5000;
+    private static int opacPointsPerChunk = 0;
     private static int opacMaxChunks = 200;
     private static int thresholdThriving = 60;
     private static int thresholdLonely   = 40;
